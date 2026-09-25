@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#080b10" />
+    <meta
+      name="description"
+      content="Explore o Sistema Solar em 3D. Experimente órbitas, viaje entre planetas e crie seu próprio universo no Solaris."
+    />
+    <title>Solaris — Seu universo, em movimento</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="stylesheet" href="/css/main.css" />
+    <link rel="stylesheet" href="/css/ui-panels.css" />
+    <link rel="stylesheet" href="/css/animations.css" />
+  </head>
+  <body>
+    <div
+      id="viewport"
+      aria-label="Simulação tridimensional do Sistema Solar"
+    ></div>
+    <div id="labels"></div>
+    <div class="vignette"></div>
+    <div id="loading" class="loading">
+      <div class="loading-orbit"><span></span></div>
+      <h1>SOLARIS<span>3D</span></h1>
+      <p id="loading-text">Preparando seu universo…</p>
+      <div class="loading-track"><i id="loading-progress"></i></div>
+    </div>
+    <header class="topbar">
+      <a href="./" class="brand" aria-label="Solaris início"
+        ><span class="brand-orbit"></span>SOLARIS<span class="brand-tag"
+          >3D</span
+        ></a
+      >
+      <nav class="main-nav" aria-label="Modo de experiência">
+        <button class="nav-button active" id="explore-tab">
+          <span data-icon="orbit"></span>Explorar</button
+        ><button class="nav-button" id="lab-tab">
+          <span data-icon="flask"></span>Laboratório<span class="beta"
+            >SANDBOX</span
+          >
+        </button>
+      </nav>
+      <div class="header-right">
+        <span class="live-status"><i></i>SISTEMA ONLINE</span
+        ><button
+          class="icon-button"
+          id="help-button"
+          aria-label="Ajuda e controles"
+          title="Ajuda e controles"
+        >
+          <span data-icon="help"></span></button
+        ><button
+          class="icon-button"
+          id="fullscreen-button"
+          aria-label="Tela cheia"
+          title="Tela cheia"
+        >
+          <span data-icon="expand"></span>
+        </button>
+      </div>
+    </header>
+    <main class="interface">
+      <aside class="sidebar glass" id="sidebar">
+        <div class="panel-heading">
+          <span class="eyebrow">NOSSA VIZINHANÇA CÓSMICA</span
+          ><button
+            class="icon-button mobile-close"
+            id="close-sidebar"
+            aria-label="Fechar planetas"
+          >
+            ×
+          </button>
+        </div>
+        <h2>Sistema Solar <span class="tiny-tag">9 CORPOS</span></h2>
+        <button class="overview-button" id="overview">
+          <span data-icon="grid"></span>Visão geral<span class="key">H</span>
+        </button>
+        <div class="section-label">CORPOS CELESTES <span>TIPO</span></div>
+        <div id="body-list" class="body-list"></div>
+        <div class="sidebar-footer">
+          <span data-icon="mouse"></span
+          ><span
+            >Um universo para explorar.<br /><strong
+              >Selecione um corpo para começar.</strong
+            ></span
+          >
+        </div>
+      </aside>
+      <div class="scene-heading">
+        <div class="eyebrow">
+          <span class="accent-dash"></span>EXPLORE. DESCUBRA. EXPERIMENTE.
+        </div>
+        <h1>O universo está<br />em suas mãos<span>.</span></h1>
+        <p>Uma nova perspectiva do nosso lugar no espaço.</p>
+      </div>
+      <div class="scene-toolbar glass" aria-label="Controles da cena">
+        <button
+          id="mobile-planets"
+          class="icon-button"
+          title="Lista de planetas"
+          aria-label="Lista de planetas"
+        >
+          <span data-icon="grid"></span></button
+        ><button
+          id="orbit-toggle"
+          class="icon-button selected"
+          title="Mostrar órbitas"
+          aria-label="Mostrar órbitas"
+          aria-pressed="true"
+        >
+          <span data-icon="orbit"></span></button
+        ><button
+          id="label-toggle"
+          class="icon-button selected"
+          title="Mostrar nomes"
+          aria-label="Mostrar nomes"
+          aria-pressed="true"
+        >
+          <span data-icon="tag"></span></button
+        ><span class="toolbar-divider"></span
+        ><button
+          id="free-flight"
+          class="icon-button"
+          title="Voo livre (WASD)"
+          aria-label="Voo livre"
+        >
+          <span data-icon="navigation"></span></button
+        ><button
+          id="capture"
+          class="icon-button"
+          title="Salvar imagem"
+          aria-label="Salvar imagem"
+        >
+          <span data-icon="camera"></span>
+        </button>
+      </div>
+      <aside class="inspector glass" id="inspector">
+        <div class="panel-heading">
+          <span class="eyebrow">EM OBSERVAÇÃO</span
+          ><span class="focus-dot"></span>
+        </div>
+        <div id="body-info"></div>
+        <button class="focus-button" id="focus-button">
+          <span data-icon="focus"></span>Explorar de perto<span>↗</span>
+        </button>
+        <div class="inspector-note">
+          <span data-icon="info"></span>Dados de referência NASA / NSSDCA
+        </div>
+      </aside>
+      <aside class="lab-panel glass" id="lab-panel" hidden>
+        <div class="panel-heading">
+          <span class="eyebrow">LABORATÓRIO ORBITAL</span
+          ><span class="tiny-tag">AO VIVO</span>
+        </div>
+        <h2>Crie o inesperado<span>.</span></h2>
+        <p class="muted">Pequenas mudanças. Efeitos cósmicos.</p>
+        <div class="lab-tabs" role="tablist">
+          <button class="active" data-panel="create">Criar</button
+          ><button data-panel="physics">Física</button
+          ><button data-panel="visual">Visual</button>
+        </div>
+        <div class="lab-content" id="panel-create">
+          <div class="spawn-grid">
+            <button data-spawn="meteor">
+              <span data-icon="meteor"></span>Meteoro<small
+                >Impacto rochoso</small
+              ></button
+            ><button data-spawn="comet">
+              <span data-icon="comet"></span>Cometa<small
+                >Gelo e poeira</small
+              ></button
+            ><button data-spawn="blackhole">
+              <span data-icon="orbit"></span>Buraco negro<small
+                >Atração extrema</small
+              ></button
+            ><button data-spawn="star">
+              <span data-icon="sun"></span>Estrela<small>Sistema binário</small>
+            </button>
+          </div>
+          <p class="tool-hint" id="tool-hint">
+            Escolha um corpo e clique no espaço. Arraste para definir a
+            velocidade.
+          </p>
+          <button id="cancel-tool" class="secondary-button" hidden>
+            Cancelar criação · Esc
+          </button>
+          <div class="section-label">CENÁRIOS PRONTOS</div>
+          <button class="scenario-button" data-preset="meteor">
+            Chuva de meteoros <span>↗</span></button
+          ><button class="scenario-button" data-preset="collision">
+            Terra × Marte <span>↗</span></button
+          ><button class="scenario-button" data-preset="binary">
+            Dois sóis <span>↗</span>
+          </button>
+        </div>
+        <div class="lab-content" id="panel-physics" hidden>
+          <label class="switch-row"
+            >Gravidade mútua<input
+              type="checkbox"
+              id="mutual-gravity"
+              role="switch" /></label
+          ><label class="switch-row"
+            >Colisões<input
+              type="checkbox"
+              id="collisions"
+              checked
+              role="switch" /></label
+          ><label class="slider-label" for="gravity"
+            >Gravidade global <output id="gravity-value">1×</output></label
+          ><input
+            type="range"
+            id="gravity"
+            min="0"
+            max="4"
+            step="0.1"
+            value="1"
+          /><label class="slider-label" for="sun-mass"
+            >Massa do Sol <output id="sun-mass-value">1 M☉</output></label
+          ><input
+            type="range"
+            id="sun-mass"
+            min="0.1"
+            max="5"
+            step="0.1"
+            value="1"
+          />
+          <div class="section-label">CORPO SELECIONADO</div>
+          <div class="button-stack">
+            <button id="stop-rotation">Parar / retomar rotação</button
+            ><button id="reverse-rotation">Inverter rotação</button
+            ><button id="reverse-orbit">Inverter órbita</button
+            ><button id="throw-planet">Arrastar e arremessar</button>
+          </div>
+          <p class="tool-hint">
+            A física usa escalas didáticas e integração estável. Resultados são
+            ilustrativos.
+          </p>
+        </div>
+        <div class="lab-content" id="panel-visual" hidden>
+          <label class="field-label" for="quality">Qualidade gráfica</label
+          ><select id="quality">
+            <option value="low">Leve</option>
+            <option value="medium" selected>Equilibrada</option>
+            <option value="ultra">Ultra</option></select
+          ><label class="switch-row"
+            >Cinturão de asteroides<input
+              id="asteroids-toggle"
+              type="checkbox"
+              checked
+              role="switch" /></label
+          ><label class="switch-row"
+            >Brilho cinematográfico<input
+              id="bloom-toggle"
+              type="checkbox"
+              checked
+              role="switch" /></label
+          ><label class="slider-label" for="exposure"
+            >Exposição <output id="exposure-value">1.2</output></label
+          ><input
+            id="exposure"
+            type="range"
+            min="0.5"
+            max="2"
+            step="0.1"
+            value="1.2"
+          />
+          <p class="tool-hint">
+            Equilibrada: texturas 2K, até 1.600 asteroides e resolução limitada
+            a 1,5×.
+          </p>
+        </div>
+      </aside>
+      <div class="events" id="events" role="status" aria-live="polite"></div>
+      <aside class="minimap glass">
+        <div class="panel-heading">
+          <span class="eyebrow">MAPA ORBITAL</span
+          ><span class="map-live">LIVE</span>
+        </div>
+        <canvas
+          id="minimap"
+          width="232"
+          height="130"
+          aria-label="Mapa orbital. Clique para selecionar um planeta."
+        ></canvas>
+        <div class="map-footer">
+          <span><i></i>POSIÇÃO RELATIVA</span><span>VISTA SUPERIOR</span>
+        </div>
+      </aside>
+      <div class="scene-caption">
+        <span class="caption-cross">+</span
+        ><span id="view-caption">SISTEMA SOLAR</span
+        ><span class="caption-line"></span
+        ><span id="scale-caption">DISTÂNCIAS ILUSTRATIVAS</span>
+      </div>
+      <div class="bottom-hint">
+        <span data-icon="mouse"></span>Arraste para orbitar<span>·</span>Scroll
+        para aproximar<span>·</span><kbd>F</kbd> Focar
+      </div>
+    </main>
+    <footer class="timebar glass">
+      <div class="time-controls">
+        <button
+          class="icon-button"
+          id="reset"
+          title="Reiniciar simulação"
+          aria-label="Reiniciar simulação"
+        >
+          <span data-icon="reset"></span></button
+        ><button
+          class="play-button"
+          id="play"
+          title="Pausar (Espaço)"
+          aria-label="Pausar simulação"
+        >
+          <span data-icon="pause"></span>
+        </button>
+        <div class="date-block">
+          <span class="eyebrow">TEMPO SIMULADO</span
+          ><strong id="sim-date">01 JAN 2026</strong>
+        </div>
+      </div>
+      <div class="speed-controls">
+        <span data-icon="clock"></span
+        ><span class="speed-label">Velocidade do tempo</span
+        ><input
+          id="time-speed"
+          type="range"
+          min="0"
+          max="9"
+          step="1"
+          value="3"
+          aria-label="Velocidade do tempo"
+        /><output id="time-value">10 dias/s</output>
+      </div>
+      <div class="scale-controls">
+        <span class="eyebrow">ESCALA</span
+        ><button class="scale-button active" data-scale="educational">
+          Didática</button
+        ><button class="scale-button" data-scale="real">Real</button>
+      </div>
+    </footer>
+    <div class="statusbar">
+      <span
+        ><i></i><span id="simulation-status">ÓRBITAS KEPLERIANAS</span
+        ><span class="status-separator">/</span>WEBGL 2.0</span
+      ><span id="fps">— FPS</span
+      ><span>FEITO PARA A CURIOSIDADE <span class="little-star">✦</span></span>
+    </div>
+    <dialog id="help-dialog">
+      <button
+        class="dialog-close icon-button"
+        id="close-help"
+        aria-label="Fechar ajuda"
+      >
+        ×</button
+      ><span class="eyebrow">GUIA DO EXPLORADOR</span>
+      <h2>Seu próximo destino:<br />qualquer lugar.</h2>
+      <p>
+        Selecione um planeta na lista ou no espaço. Explore sua superfície,
+        acompanhe sua órbita ou experimente no Laboratório.
+      </p>
+      <div class="help-grid">
+        <span>Orbitar / aproximar</span><strong>Arrastar / scroll</strong
+        ><span>Mover lateralmente</span><strong>Botão direito</strong
+        ><span>Pausar / continuar</span><kbd>Espaço</kbd
+        ><span>Focar / visão geral</span><strong>F / H</strong
+        ><span>Voo livre</span><strong>W A S D · Q E</strong
+        ><span>Cancelar ferramenta</span><kbd>Esc</kbd>
+      </div>
+      <p class="muted">
+        No voo livre, arraste para olhar. No laboratório, clique e arraste no
+        espaço para lançar um corpo. O mapa permite selecionar planetas.
+      </p>
+      <p class="credits">
+        Texturas:
+        <a
+          href="https://www.solarsystemscope.com/textures/"
+          target="_blank"
+          rel="noreferrer"
+          >Solar System Scope</a
+        >
+        · CC BY 4.0<br />Dados:
+        <a
+          href="https://nssdc.gsfc.nasa.gov/planetary/factsheet/"
+          target="_blank"
+          rel="noreferrer"
+          >NASA Planetary Fact Sheet</a
+        ><br />Visualização educacional. Posições iniciais são uma composição,
+        não efemérides.
+      </p>
+    </dialog>
+    <script type="module" src="/js/main.js"></script>
+  </body>
+</html>
