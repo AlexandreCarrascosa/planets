@@ -8,7 +8,7 @@ export class ParticleSystem {
     this.max = 1400;
     this.random = seededRandom(1942);
     this.mesh = new THREE.InstancedMesh(
-      new THREE.IcosahedronGeometry(0.065, 0),
+      new THREE.SphereGeometry(0.065, 12, 8),
       new THREE.MeshPhysicalMaterial({
         color: "#bc8a65",
         emissive: "#ff7432",
@@ -44,7 +44,7 @@ export class ParticleSystem {
         maxLife: dust ? 11 : 6,
         scale: 0.4 + random() * size * 0.8,
         color: new THREE.Color(options.ice ? "#c0ddeb" : dust ? color : "#ffad55"),
-        dust, ice: options.ice, drag: options.atmosphere,
+        dust, ice: options.ice, drag: options.atmosphere, atmosphereBody: options.atmosphereBody,
       });
     }
     if (!options.atmosphere) return;
@@ -83,7 +83,10 @@ export class ParticleSystem {
         );
       }
       p.position.addScaledVector(p.velocity, dt);
-      if (p.dust && p.drag) p.velocity.multiplyScalar(Math.exp(-dt * 0.1));
+      if (p.dust && p.drag && p.atmosphereBody?.environment && p.atmosphereBody.root.visible) {
+        const altitude=p.position.distanceTo(p.atmosphereBody.position)/p.atmosphereBody.radius-1;
+        if(altitude<.02)p.velocity.multiplyScalar(Math.exp(-dt*.1*Math.exp(-Math.max(0,altitude)/.003)));
+      }
       this.dummy.position.copy(p.position);
       this.dummy.scale.setScalar(p.scale * Math.min(1, p.life / 1.5) * (p.dust ? 1 + (p.maxLife - p.life) * 0.12 : 1));
       this.dummy.rotation.set(p.life, p.life * 2, p.life * 0.3);

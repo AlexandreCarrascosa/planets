@@ -27,14 +27,14 @@ export class Minimap {
     c.lineWidth = 0.6;
     c.strokeStyle = "#53627628";
     for (const body of bodies) {
-      if (body.destroyed) continue;
-      if (body.distance) {
+      if (body.destroyed || body.simulationHidden) continue;
+      if (body.orbitDisplayRadius || body.distance) {
         c.beginPath();
         c.ellipse(
           cx,
           cy,
-          body.distance * scale,
-          body.distance * scale,
+          (body.orbitDisplayRadius || body.distance) * scale,
+          (body.orbitDisplayRadius || body.distance) * scale,
           0,
           0,
           Math.PI * 2,
@@ -51,7 +51,7 @@ export class Minimap {
     c.stroke();
     this.dots = [];
     for (const body of bodies) {
-      if (body.destroyed) continue;
+      if (body.destroyed || body.simulationHidden) continue;
       const x = cx + body.position.x * scale,
         y = cy + body.position.z * scale;
       this.dots.push({ x, y, body });

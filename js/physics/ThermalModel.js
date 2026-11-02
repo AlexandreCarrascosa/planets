@@ -18,6 +18,14 @@ export class ThermalModel {
     this.molten = 0;
   }
   get surfaceTemperature() { return this.temperature + this.bulkHeat; }
+  equilibrate(distanceAU, luminosity) {
+    this.temperature=this.target=Math.max(3,this.profile.baselineK
+      +equilibriumTemperature(distanceAU,this.profile.albedo,luminosity)
+      -equilibriumTemperature(this.referenceAU,this.profile.albedo));
+    this.bulkHeat=this.impactHeat=0;
+    this.ice=this.profile.kind==="water"?clamp((278-this.temperature)/45,0,1):0;
+    this.molten=clamp((this.temperature-1200)/800,0,1);
+  }
   addMergerHeat({ energyJ, massKg, radiusKm }) {
     if (!(energyJ >= 0 && massKg > 0 && radiusKm > 0)) return;
     const existingEnergy = this.bulkHeat * (this.heatCapacity || 0);

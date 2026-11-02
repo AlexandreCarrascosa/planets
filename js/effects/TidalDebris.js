@@ -46,7 +46,7 @@ export class TidalDebris {
       color: gaseous ? "#e9c6a4" : body.data.type === "Cometa" ? "#a7bac5" : "#847367", roughness: 0.95,
       emissive: "#ad4118", emissiveIntensity: gaseous ? 0.5 : 0.025,
     });
-    const mesh = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 0), material, count);
+    const mesh = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 12, 8), material, count);
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     mesh.frustumCulled = false;
     mesh.count = 0;

@@ -199,8 +199,19 @@
           <button class="scenario-button" data-preset="freeze">Terra em resfriamento <span>↗</span></button>
           <button class="scenario-button" data-preset="heat">Terra sob calor extremo <span>↗</span></button>
           <button class="scenario-button" data-preset="tides">Marés · buraco negro <span>↗</span></button>
+          <button class="scenario-button" data-preset="physical-orbits">Gravidade · N corpos <span>↗</span></button>
+          <button class="scenario-button" data-preset="binary-physical">Duas estrelas · centro de massa <span>↗</span></button>
+          <button class="scenario-button" data-preset="relativity">Mercúrio · relatividade <span>↗</span></button>
+          <button class="scenario-button" data-preset="blackhole-orbits">Buraco negro · mesma massa solar <span>↗</span></button>
+          <button class="scenario-button" data-preset="future-sun">Futuro do Sol · gigante vermelha <span>↗</span></button>
         </div>
         <div class="lab-content" id="panel-physics" hidden>
+          <p class="tool-hint" id="science-status"></p>
+          <div id="stellar-controls" hidden>
+            <label for="stellar-age">Fase da evolução solar</label>
+            <input id="stellar-age" type="range" min="0" max="1" step="0.001" value="0" aria-label="Fase da evolução solar" />
+            <p class="tool-hint">Linha do tempo ilustrativa: fases e órbitas condensadas. Perda de massa expande as órbitas; não inclui marés estelares. O Sol termina como anã branca.</p>
+          </div>
           <label class="switch-row"
             >Gravidade mútua<input
               type="checkbox"

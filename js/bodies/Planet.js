@@ -114,6 +114,7 @@ export class Planet extends CelestialBody {
       this.orbitDays += deltaDays * this.orbitDirection;
       this.setOrbitPosition();
     }
+    else if(this.scientificOrbit&&!this.dragging)this.orbitDays+=deltaDays;
     this.rotate(deltaDays);
     if (!this.impactLocked) for (const moon of this.moons) moon.update(this.orbitDays, this.realScale);
     this.orbit.visible = !this.free && !this.destroyed;

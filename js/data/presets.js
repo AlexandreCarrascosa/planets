@@ -1,7 +1,18 @@
 import * as THREE from "three";
 import { seededRandom } from "../physics/PhysicalUnits.js";
+import { ScientificScenarios } from "../physics/ScientificScenarios.js";
 export function runPreset(app, name) {
   const random = seededRandom(1942);
+  if(["physical-orbits","binary-physical","relativity","blackhole-orbits","future-sun"].includes(name)) {
+    app.reset(false);app.scientific=new ScientificScenarios(app,name);
+    app.clock.speed=10;app.ui.syncPlay();app.overview();
+    if(name==="binary-physical")app.camera.frameEncounter(app.sun,app.scientific.companion);
+    app.select(name==="future-sun"?app.sun:app.bodies.find(b=>b.id==="earth"),false);
+    for(const id of ["gravity","sun-mass","solar-flux","mutual-gravity","collisions","reverse-orbit","throw-planet"])document.getElementById(id).disabled=true;
+    app.log.add(name==="future-sun"?"Evolução solar condensada. Ajuste a fase em Física; o destino da Terra depende de perda de massa e marés.":"Dinâmica em AU/dias/massas solares. Raios visuais ampliados não são usados como raios de colisão.");
+    return;
+  }
+  if(app.scientific)app.reset(false);
   if (["collision", "merge", "grazing"].includes(name) || app.planetImpacts.active.length) app.reset(false);
   if (name === "tides") {
     app.reset(false);

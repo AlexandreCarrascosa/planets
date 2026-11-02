@@ -32,7 +32,7 @@ export class SelectionSystem {
   pick(e) {
     const hit = this.ray(e)
       .intersectObjects(
-        this.app.bodies.filter((b) => !b.destroyed).map((b) => b.root),
+        this.app.bodies.filter((b) => !b.destroyed && b.root.visible).map((b) => b.root),
         true,
       )
       .find((h) => h.object.userData.body);

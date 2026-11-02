@@ -25,6 +25,7 @@ import { clamp } from "./physics/PhysicalUnits.js";
 import { tidalLoad } from "./physics/TidalModel.js";
 import { TidalDebris } from "./effects/TidalDebris.js";
 import { PlanetImpacts } from "./effects/PlanetImpacts.js";
+import { EjectaCloud } from "./effects/EjectaCloud.js";
 
 class Solaris {
   async init() {
@@ -68,6 +69,7 @@ class Solaris {
     this.particles = new ParticleSystem(this.scene.scene);
     this.tidalDebris = new TidalDebris(this.scene.scene);
     this.planetImpacts = new PlanetImpacts(this);
+    this.ejecta = new EjectaCloud(this);
     this.buildSystem();
     this.ui = new ControlPanel(this);
     this.selection = new SelectionSystem(this);
@@ -126,6 +128,12 @@ class Solaris {
     this.ui.toggle(document.getElementById("free-flight"), false);
   }
   setScale(real) {
+    if(this.scientific) {
+      this.realScale=real;this.scientific.setScale(real);
+      document.querySelectorAll("[data-scale]").forEach(b=>b.classList.toggle("active",(b.dataset.scale==="real")===real));
+      document.getElementById("scale-caption").textContent=real?"RAIOS E DISTÂNCIAS NA MESMA ESCALA":"DINÂMICA EM UA · RAIOS VISUAIS AMPLIADOS";
+      this.overview();return;
+    }
     // Rebuild after experiments so changing units never mixes incompatible velocities.
     if (this.bodies.some((b) => b.free || b.destroyed)) this.reset(false);
     this.realScale = real;
@@ -151,6 +159,11 @@ class Solaris {
   reset(notify = true) {
     this.setTool(null);
     this.planetImpacts.clear();
+    this.ejecta.clear();this.scientific?.dispose();this.scientific=null;
+    document.getElementById("stellar-controls").hidden=true;
+    document.getElementById("science-status").textContent="";
+    const stepButton=document.getElementById("step-time");stepButton.textContent="+1d";stepButton.setAttribute("aria-label","Avançar um dia");stepButton.title="Pausar e avançar um dia";
+    for(const id of ["gravity","sun-mass","solar-flux","mutual-gravity","collisions","reverse-orbit","throw-planet"])document.getElementById(id).disabled=false;
     for (const b of this.bodies) b.dispose();
     this.bodies = [];
     this.belt.mesh.removeFromParent();
@@ -199,6 +212,7 @@ class Solaris {
     if (notify) this.log.add("Um novo começo. Sistema Solar restaurado.");
   }
   setTool(tool) {
+    if(tool&&this.scientific)this.reset(false);
     this.drag?.cancel();
     if (tool && this.realScale) {
       this.setScale(false);
@@ -229,6 +243,7 @@ class Solaris {
     runPreset(this, name);
   }
   enablePhysics(on) {
+    if(this.scientific)this.reset(false);
     if (this.realScale) this.setScale(false);
     this.gravity.mutual = on;
     document.getElementById("mutual-gravity").checked = on;
@@ -321,7 +336,7 @@ class Solaris {
     const larger = a.mass >= b.mass ? a : b, smaller = larger === a ? b : a;
     const outward = contact.normal.clone().multiplyScalar(larger === a ? 1 : -1);
     const point = larger.position.clone().addScaledVector(outward, larger.radius);
-    const options = { normal: outward, atmosphere: !!larger.environment?.profile.atmosphere };
+    const options = { normal: outward, atmosphere: !!larger.environment?.profile.atmosphere, atmosphereBody: larger };
     const absorb = (target, victim) => {
       const mass = target.mass + victim.mass;
       target.velocity.copy(event.centerVelocity);
@@ -403,10 +418,12 @@ class Solaris {
     }
   }
   updatePhysics(dt, days) {
+    if(this.scientific){this.scientific.update(days);return;}
     const physical = this.bodies.some((b) => b.free && !b.destroyed);
     if (physical) this.limitPhysicsSpeed();
     this.gravity.step(this.bodies, days * 0.1, (h) => {
       this.planetImpacts.step(h);
+      this.ejecta.step(h);
       this.tidalDebris.step(h, this.bodies, this.gravity.global, (hole, fragment) => {
         const total = hole.mass + fragment.mass;
         hole.velocity.multiplyScalar(hole.mass / total).addScaledVector(fragment.velocity, fragment.mass / total);
@@ -418,6 +435,7 @@ class Solaris {
       if (this.collisionsEnabled) this.collision.check(this.bodies);
     });
     this.tidalDebris.render();
+    this.ejecta.render();
     for (const b of this.bodies) {
       if (b.destroyed) continue;
       if (b instanceof Meteor) {
@@ -521,11 +539,12 @@ class Solaris {
       if (b.orbit) b.orbit.visible = this.showOrbits && !b.free && !b.destroyed;
     }
     this.updatePhysics(dt, days);
-    this.sun.light.intensity = 3.6 * this.luminosity;
-    this.sun.material.emissiveIntensity = 2.1 * this.luminosity;
+    this.sun.light.decay=this.scientific?2:0;
+    this.sun.light.intensity = 3.6 * (this.scientific ? 900*Math.min(4,Math.sqrt(this.luminosity)) : this.luminosity);
+    this.sun.material.emissiveIntensity = 2.1 * (this.scientific ? Math.min(1,this.luminosity) : this.luminosity);
     this.sun.glow.material.opacity *= Math.min(1.5, Math.sqrt(this.luminosity));
     this.belt.update(this.clock.days);
-    this.belt.mesh.visible = this.showBelt && !this.realScale;
+    this.belt.mesh.visible = this.showBelt && !this.realScale && !this.scientific;
     this.camera.update(dt);
     this.updateLensing();
     this.updateLabels();
@@ -535,7 +554,7 @@ class Solaris {
     if (this.frames % 6 === 0) {
       this.ui.update();
       this.hud.update(this.selected);
-      this.minimap.draw(this.bodies, this.selected, this.realScale);
+      this.minimap.draw(this.bodies, this.selected, this.realScale || !!this.scientific);
     }
     if (this.fpsTime >= 1) {
       document.getElementById("fps").textContent =

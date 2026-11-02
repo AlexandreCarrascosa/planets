@@ -71,7 +71,7 @@ export class PlanetImpacts {
     a.environment?.impact(contact.point, 2);
     b.environment?.impact(contact.point, 2);
     this.app.particles.burst(contact.point, "#ffc583", 0.45, {
-      normal: contact.normal, atmosphere: !!a.environment?.profile.atmosphere,
+      normal: contact.normal, atmosphere: !!a.environment?.profile.atmosphere, atmosphereBody: a,
     });
     this.active.push(record);
     return true;
@@ -109,6 +109,11 @@ export class PlanetImpacts {
   }
   shatter(record) {
     const { a, b, event, normal } = record;
+    if(this.app.ejecta?.add(a,b,{...event,centerVelocity:record.velocity},normal,record.center)) {
+      this.finish(record,a.mass>=b.mass?a:b);
+      this.app.log.add("Ruptura granular: material dos dois corpos se desprende com trajetórias próprias e atração entre as parcelas. Modelo reduzido, sem hidrodinâmica SPH.");
+      return;
+    }
     const capacity = Math.max(2, 98 - this.app.bodies.filter(body => !body.destroyed).length);
     const count = Math.min(24, capacity);
     const weight = Math.sqrt(a.mass) / (Math.sqrt(a.mass) + Math.sqrt(b.mass));
@@ -142,6 +147,12 @@ export class PlanetImpacts {
     // Merger cells are temporary render/transport objects, independent of the
     // free-body capacity. The victim retains exactly their remaining mass.
     const parts = fractureBody(victim, 32, this.seed++);
+    for(const part of parts) {
+      // A merging planetary mantle flows as hot material. Do not display the
+      // planar partition cells used internally to allocate its mass/centroid.
+      part.geometry.dispose();part.radius=Math.cbrt(part.visualVolume);
+      part.geometry=new THREE.SphereGeometry(part.radius,16,10);
+    }
     record.target = target; record.victim = victim; record.parts = parts;
     record.phase = "transfer"; record.age = 0; record.duration = 3.2;
     record.targetVolume = target.visualVolume || target.radius ** 3;
@@ -157,6 +168,8 @@ export class PlanetImpacts {
       part.start = part.position.clone().sub(record.center);
       part.travel = record.duration * (0.65 + 0.35 * clamp(part.position.clone().sub(target.position).dot(outward) / range, 0, 1));
       part.materials = materialsFor(victim, part);
+      part.materials[0].map=null;part.materials[0].color.set(victim.data.color||"#a36342");
+      part.materials[0].emissive.set("#d9420d");part.materials[0].emissiveIntensity=.3;
       part.mesh = new THREE.Mesh(part.geometry, part.materials);
       part.mesh.position.copy(part.position); part.mesh.castShadow = true;
       this.app.scene.scene.add(part.mesh);
@@ -175,6 +188,7 @@ export class PlanetImpacts {
       part.velocity.copy(record.velocity).add(part.relativeVelocity);
       part.mesh.position.copy(part.position);
       part.materials[1].emissiveIntensity = 0.8 * Math.exp(-record.age / 5);
+      part.materials[0].emissiveIntensity = 0.3 * Math.exp(-record.age / 5);
     }
     const placeTarget = () => {
       const weightedPosition = new THREE.Vector3(), weightedVelocity = new THREE.Vector3();

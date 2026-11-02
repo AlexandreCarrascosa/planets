@@ -18,6 +18,11 @@ export class InfoHUD {
   update(body) {
     if (!body || body.destroyed) return;
     if (body.mass !== this.shownMass) this.show(body, this.shownIndex);
+    if(body.hypotheticalHole){this.root.querySelector(".planet-preview img").hidden=true;this.root.querySelector(".planet-preview").style.background="radial-gradient(circle,#000 40%,#141a22 44%,#05080e 66%)";}
+    if(body.evolvingStar||body.hypotheticalHole)for(const row of this.root.querySelectorAll(".stat-grid > div")) {
+      const label=row.querySelector(".stat-label").textContent;
+      if(label==="ROTAÇÃO"||(body.hypotheticalHole&&label==="TEMPERATURA"))row.querySelector(".stat-value").textContent="Não calculada";
+    }
     let root = this.root.querySelector(".environment-readout");
     if (!root) {
       root = document.createElement("div"); root.className = "environment-readout";
@@ -26,6 +31,6 @@ export class InfoHUD {
     const env = body.environment;
     root.textContent = env
       ? `${env.profile.label}\n${(env.thermal.surfaceTemperature - 273.15).toFixed(0)} °C estimados · ${env.thermal.state}${env.weather ? `\nCobertura de nuvens: ${(env.weather.coverage() * 100).toFixed(0)}% · circulação simplificada` : ""}`
-      : body.isBlackHole ? `Horizonte físico: ${body.data.radiusKm.toFixed(0)} km · tamanho de exibição ampliado` : "";
+      : body.isBlackHole ? `Schwarzschild sem rotação · horizonte: ${body.data.radiusKm.toFixed(0)} km\nÓrbita circular estável mais interna: ${(3*body.data.radiusKm).toFixed(0)} km · desenho ampliado` : "";
   }
 }

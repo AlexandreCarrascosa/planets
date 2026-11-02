@@ -26,6 +26,7 @@ export class PlanetEnvironment {
       cloudDetail: { value: assets.get("earth_clouds") },
       heatPoint: { value: new THREE.Vector3(0, 1, 0) },
       heat: { value: 0 },
+      solarIllumination: { value: 1 },
     };
     if (planet.id === "earth") {
       this.weather = new WeatherModel(this.profile);
@@ -51,7 +52,7 @@ export class PlanetEnvironment {
       shader.vertexShader = `varying vec3 envNormal; varying vec3 envWorld; varying vec2 envUv;\n` + shader.vertexShader;
       shader.vertexShader = shader.vertexShader.replace("#include <begin_vertex>",
         `#include <begin_vertex>\nenvNormal=normalize(position); envUv=uv; envWorld=(modelMatrix*vec4(position,1.)).xyz;`);
-      shader.fragmentShader = `uniform float envTime,ice,molten,gas,wind,heat;
+      shader.fragmentShader = `uniform float envTime,ice,molten,gas,wind,heat,solarIllumination;
         uniform vec3 sunWorld,heatPoint; uniform sampler2D cloudMap,cloudDetail;
         varying vec3 envNormal; varying vec3 envWorld; varying vec2 envUv;\n` + noiseGLSL + shader.fragmentShader;
       shader.fragmentShader = shader.fragmentShader.replace("#include <map_fragment>", `
@@ -79,7 +80,7 @@ export class PlanetEnvironment {
       `);
       shader.fragmentShader = shader.fragmentShader.replace("#include <emissivemap_fragment>", `
         #include <emissivemap_fragment>
-        ${isEarth ? `float daylight=dot(normal,normalize(mat3(viewMatrix)*sunWorld));
+        ${isEarth ? `float daylight=mix(-1.,dot(normal,normalize(mat3(viewMatrix)*sunWorld)),solarIllumination);
         float cloudOcclusion=texture2D(cloudMap,vec2(envUv.x,.5+.5*envNormal.y)).r;
         totalEmissiveRadiance*= (1.-smoothstep(-.18,.05,daylight))*(1.-cloudOcclusion*.9)*(1.-clamp(molten*2.,0.,1.));` : ""}
         float scar=pow(max(0.,dot(normalize(envNormal),heatPoint)),180.)*heat;
@@ -94,11 +95,11 @@ export class PlanetEnvironment {
       new THREE.ShaderMaterial({
         uniforms: { ...this.uniforms, tint: { value: new THREE.Color(color) }, strength: { value: this.profile.atmosphere } },
         vertexShader: `varying vec3 wN,wP;void main(){wP=(modelMatrix*vec4(position,1.)).xyz;wN=normalize((vec4(normalMatrix*normal,0.)*viewMatrix).xyz);gl_Position=projectionMatrix*viewMatrix*vec4(wP,1.);}`,
-        fragmentShader: `uniform vec3 tint,sunWorld;uniform float strength,molten;varying vec3 wN,wP;
+        fragmentShader: `uniform vec3 tint,sunWorld;uniform float strength,molten,solarIllumination;varying vec3 wN,wP;
         void main(){vec3 n=normalize(wN),v=normalize(cameraPosition-wP);float mu=abs(dot(n,v));
         float optical=1.-exp(-.11/max(.06,mu)); float day=smoothstep(-.16,.3,dot(n,sunWorld));
         float dusk=exp(-pow(dot(n,sunWorld)*5.,2.));vec3 c=mix(tint,vec3(.95,.26,.08),max(dusk*.48,molten*.8));
-        gl_FragColor=vec4(c*(.15+day*.85),optical*strength*(.08+day*.92));
+        gl_FragColor=vec4(c*(.15+day*.85),optical*strength*(.08+day*.92)*solarIllumination);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
         }`,
@@ -112,7 +113,7 @@ export class PlanetEnvironment {
       new THREE.ShaderMaterial({
         uniforms: this.uniforms,
         vertexShader: `varying vec2 uvC;varying vec3 nC,wC,worldN;void main(){uvC=uv;nC=normal;worldN=normalize((vec4(normalMatrix*normal,0.)*viewMatrix).xyz);wC=(modelMatrix*vec4(position,1.)).xyz;gl_Position=projectionMatrix*viewMatrix*vec4(wC,1.);}`,
-        fragmentShader: `uniform sampler2D cloudMap,cloudDetail;uniform float envTime,molten;uniform vec3 sunWorld;
+        fragmentShader: `uniform sampler2D cloudMap,cloudDetail;uniform float envTime,molten,solarIllumination;uniform vec3 sunWorld;
         varying vec2 uvC;varying vec3 nC,wC,worldN;` + noiseGLSL + `
         void main(){vec3 n=normalize(nC);vec2 uv=vec2(uvC.x,.5+.5*n.y);
         vec2 flow=uvC;flow.x+=envTime*.0015*cos(asin(clamp(n.y,-1.,1.))*4.);
@@ -121,7 +122,7 @@ export class PlanetEnvironment {
         float density=texture2D(cloudMap,uv).r*(.25+1.4*observed);
         float d=detail(n*42.+vec3(envTime*.07,0.,0.));
         float alpha=smoothstep(.3,.78,density+(.18*d-.09));
-        float light=max(0.,dot(normalize(worldN),sunWorld));
+        float light=max(0.,dot(normalize(worldN),sunWorld))*solarIllumination;
         vec3 col=mix(vec3(.045,.065,.11),vec3(1.05,1.04,1.),pow(light,.55));
         gl_FragColor=vec4(col,alpha*.92*exp(-molten*8.));
         #include <tonemapping_fragment>
@@ -146,6 +147,7 @@ export class PlanetEnvironment {
     this.thermal.impactHeat += intensity * 80;
   }
   update(days, distanceAU, luminosity, sunPosition) {
+    this.uniforms.solarIllumination.value=luminosity>0?1:0;
     this.time += days;
     this.uniforms.envTime.value = this.time % 4096;
     this.uniforms.sunWorld.value.copy(sunPosition).sub(this.planet.position).normalize();

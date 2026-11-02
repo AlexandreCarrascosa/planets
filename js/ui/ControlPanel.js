@@ -34,6 +34,10 @@ export class ControlPanel {
       this.syncPlay();
     });
     bind("reset", "click", () => app.reset());
+    bind("stellar-age","input",e=>{
+      if(app.scientific?.mode!=="future-sun")return;
+      app.scientific.progress=+e.target.value;app.clock.paused=true;this.syncPlay();app.scientific.update(0);
+    });
     bind("time-speed", "input", (e) => {
       app.clock.speed = SPEEDS[+e.target.value];
       app.clock.paused = app.clock.speed === 0;
@@ -245,7 +249,7 @@ export class ControlPanel {
       : "Selecione um planeta para acompanhar o estado térmico.";
     const impact = this.app.lastImpact;
     const names = { crater: "Impacto local", merge: "Fusão", grazing: "Impacto rasante", disruption: "Ruptura" };
-    document.getElementById("impact-status").textContent = this.app.planetImpacts.status || (this.app.tidalDebris.count
+    document.getElementById("impact-status").textContent = this.app.planetImpacts.status || (this.app.ejecta.count ? `${this.app.ejecta.count} parcelas de material com gravidade própria; a massa não expira por tempo visual.` : null) || (this.app.tidalDebris.count
       ? `Ruptura de maré: ${this.app.tidalDebris.count} fragmentos seguem trajetórias próprias. A captura alimenta o disco.`
       : this.app.tidalDebris.capturedMass > 0
         ? "Material capturado pelo horizonte. O disco perde brilho à medida que a alimentação termina."
@@ -265,5 +269,9 @@ export class ControlPanel {
       .replaceAll(" de ", " ")
       .replace(".", "")
       .toUpperCase();
+    if(this.app.scientific?.mode==="future-sun"&&this.app.scientific.solar) {
+      document.getElementById("sim-date").textContent=`+${this.app.scientific.solar.age.toFixed(2)} BILHÕES DE ANOS`;
+      document.getElementById("time-value").textContent=`${(this.app.clock.speed/10).toFixed(1)}× evolução`;
+    }
   }
 }

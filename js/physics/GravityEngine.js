@@ -45,6 +45,15 @@ export class GravityEngine {
   release(body, sun) {
     if (body.free || body === sun) return;
     body.free = true;
+    if(body.data?.eccentricity!==undefined && body.distance) {
+      const a=body.distance,e=body.data.eccentricity,i=body.data.inclination*Math.PI/180;
+      const r=body.position.clone().sub(sun.position);
+      const E=Math.atan2((r.y*Math.sin(i)+r.z*Math.cos(i))/(a*Math.sqrt(1-e*e)),r.x/a+e);
+      const rate=Math.sqrt(sun.mu/a**3)/(1-e*Math.cos(E));
+      const transverse=a*Math.sqrt(1-e*e)*Math.cos(E)*rate;
+      body.velocity.set(-a*Math.sin(E)*rate,transverse*Math.sin(i),transverse*Math.cos(i)).multiplyScalar(body.orbitDirection);
+      return;
+    }
     const radial = body.position.clone().sub(sun.position);
     body.velocity
       .crossVectors(new THREE.Vector3(0, 1, 0), radial)
