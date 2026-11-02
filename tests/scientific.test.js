@@ -129,3 +129,11 @@ test("granular detail reduction preserves mass, center and momentum instead of e
   assert.ok(weighted(cloud.streams[0].parts).distanceTo(center)<1e-12);
   cloud.clear();app.bodies.forEach(b=>b.dispose());
 });
+test("stellar capture transfers granular mass and proxies are protected from visual lifetime expiry",()=>{
+  const {app,cloud}=setupCloud();
+  assert.ok(app.bodies.every(b=>b.isImpactFragment));
+  const star={data:{type:"Estrela"},position:new THREE.Vector3(),velocity:new THREE.Vector3(),mass:10,mu:0,radius:100,setMass(mass){this.mass=mass;}};
+  app.bodies.push(star);cloud.step(.01);
+  assert.equal(cloud.count,0);assert.ok(Math.abs(star.mass-17)<1e-12);
+  cloud.clear();app.bodies.slice(0,2).forEach(b=>b.dispose());
+});

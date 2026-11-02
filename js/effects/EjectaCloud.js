@@ -18,7 +18,7 @@ export class EjectaCloud {
           const a=group[i],b=group[i+1];if(!b){next.push(a);continue;}
           const mass=a.mass+b.mass,wa=a.mass/mass,wb=b.mass/mass;
           const position=a.position.clone().multiplyScalar(wa).addScaledVector(b.position,wb);
-          next.push({...a,mass,mu:a.mu+b.mu,position,previous:position.clone(),
+          next.push({...a,mass,mu:a.mu+b.mu,physicalVolume:a.physicalVolume+b.physicalVolume,position,previous:position.clone(),
             radius:Math.cbrt(a.radius**3+b.radius**3),velocity:a.velocity.clone().multiplyScalar(wa).addScaledVector(b.velocity,wb),
             kick:a.kick.clone().multiplyScalar((1-a.released)*wa).addScaledVector(b.kick,(1-b.released)*wb),
             delay:stream.age,released:0,color:a.color.clone().lerp(b.color,wb)});
@@ -42,7 +42,7 @@ export class EjectaCloud {
         const offset=new THREE.Vector3(Math.sqrt(1-y*y)*Math.cos(angle),y,Math.sqrt(1-y*y)*Math.sin(angle)).multiplyScalar(r);
         const fraction=weights[i]/sum;
         group.push({position:body.position.clone().add(offset),sourceVelocity:body.velocity.clone(),mass:body.mass*fraction,
-          mu:body.mu*fraction,radius:body.radius*Math.cbrt(fraction),source:body,offset,release:r/body.radius,
+          mu:body.mu*fraction,radius:body.radius*Math.cbrt(fraction),physicalVolume:body.data.radiusKm**3*fraction,source:body,offset,release:r/body.radius,
           color:new THREE.Color(sourceIndex?"#8a4934":"#76645a").lerp(new THREE.Color("#ff8a32"),random()*.4)});
       }
       const mean=group.reduce((v,p)=>v.addScaledVector(p.position,p.mass/body.mass),new THREE.Vector3());
@@ -76,7 +76,7 @@ export class EjectaCloud {
     this.app.scene.scene.add(mesh);
     this.streams.push({parts,sources,mesh,age:0});
     for(const source of sources) {
-      source.root.visible=false;source.impactLocked=true;
+      source.root.visible=false;source.impactLocked=true;source.isImpactFragment=true;
       source.environment?.dispose();source.environment=null;
       source.data={...source.data,name:`Material de ${source.data.name}`,description:"Material desprendido: parcelas com massa, gravidade própria e trajetórias independentes. Modelo granular reduzido."};
       if(source.label)source.label.textContent=source.data.name;
@@ -96,7 +96,7 @@ export class EjectaCloud {
   }
   step(h) {
     if(h<=0)return;
-    const holes=this.app.bodies.filter(b=>b.isBlackHole&&!b.destroyed);
+    const sinks=this.app.bodies.filter(b=>!b.destroyed&&(b.isBlackHole||b.data?.type==="Estrela"));
     for(const stream of this.streams) {
       stream.age+=h;
       const impulseMean=new THREE.Vector3(),total=stream.parts.reduce((sum,p)=>sum+p.mass,0);
@@ -111,14 +111,21 @@ export class EjectaCloud {
       forces=this.acceleration(stream);
       stream.parts.forEach((p,i)=>p.velocity.addScaledVector(forces[i],h/2));
       stream.parts=stream.parts.filter(p=>{
-        const hole=holes.find(b=>sweptSphereContact(p.previous,p.position,b.previous||b.position,b.position,b.radius)!==null);
-        if(!hole)return true;
-        const total=hole.mass+p.mass;hole.velocity.multiplyScalar(hole.mass/total).addScaledVector(p.velocity,p.mass/total);
-        hole.accrete(p.mass);hole.accretion=Math.min(1.5,hole.accretion+.01);return false;
+        let sink=null,earliest=Infinity;
+        for(const candidate of sinks) {
+          const t=sweptSphereContact(p.previous,p.position,candidate.previous||candidate.position,candidate.position,candidate.radius);
+          if(t!==null&&t<earliest){sink=candidate;earliest=t;}
+        }
+        if(!sink)return true;
+        const total=sink.mass+p.mass;sink.velocity.multiplyScalar(sink.mass/total).addScaledVector(p.velocity,p.mass/total);
+        if(sink.isBlackHole){sink.accrete(p.mass);sink.accretion=Math.min(1.5,sink.accretion+.01);}
+        else sink.setMass(total);
+        return false;
       });
       for(const body of stream.sources) {
         const group=stream.parts.filter(p=>p.source===body),mass=group.reduce((sum,p)=>sum+p.mass,0);
         body.mass=mass;body.mu=group.reduce((sum,p)=>sum+p.mu,0);
+        body.data={...body.data,massKg:mass,radiusKm:Math.cbrt(group.reduce((sum,p)=>sum+p.physicalVolume,0))};
         if(!mass){this.app.destroy(body);continue;}
         body.position.copy(group.reduce((v,p)=>v.addScaledVector(p.position,p.mass/mass),new THREE.Vector3()));
         body.velocity.copy(group.reduce((v,p)=>v.addScaledVector(p.velocity,p.mass/mass),new THREE.Vector3()));

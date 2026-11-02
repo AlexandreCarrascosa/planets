@@ -76,7 +76,7 @@ Referências: [Schröder & Smith, 2008](https://arxiv.org/abs/0801.4031), [Essel
 
 Os testes abrangem inverso do quadrado, forças opostas, órbita circular de dez anos, vis-viva de todos os planetas, avanço relativístico adicional de Mercúrio, fontes de mesma massa, baricentro binário, liberação elíptica, relações estelares, ejeção com liberação progressiva, captura e redução conservativa de detalhe. São testes de invariantes e casos de referência, não uma validação contra um hidrocode.
 
-A revisão passou por 45 testes automatizados e compilação de produção. A troca para a escala real preserva o motor físico ativo. A interface também diferencia o relógio orbital da evolução solar condensada. O disco, a exposição, a granulação visual e as partículas não constituem uma previsão fotométrica. Foram conferidos no navegador os cenários científicos e a nova ruptura.
+A revisão passou por 46 testes automatizados e compilação de produção, incluindo transferência de massa na captura por estrelas e buracos negros. A troca para a escala real preserva o motor físico ativo. A interface também diferencia o relógio orbital da evolução solar condensada. O disco, a exposição, a granulação visual e as partículas não constituem uma previsão fotométrica. Foram conferidos no navegador os cenários científicos e a nova ruptura.
 
 Capturas da revisão: [material desprendido](ruptura-granular.png) e [gigante vermelha](gigante-vermelha.png).
 
