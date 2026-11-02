@@ -2,6 +2,7 @@ import { icon, populateIcons } from "./icons.js";
 import { assetUrl } from "../core/assetUrl.js";
 import { BODY_DATA, SPEEDS, SPEED_LABELS } from "../data/planetData.js";
 import { InputManager } from "../interaction/InputManager.js";
+import { blackHoleProfile, profileDescription } from "../data/blackHoleProfiles.js";
 export class ControlPanel {
   constructor(app) {
     this.app = app;
@@ -23,6 +24,8 @@ export class ControlPanel {
     });
     const bind = (id, event, fn) =>
       document.getElementById(id).addEventListener(event, fn);
+    this.syncHoleProfile=()=>document.getElementById("blackhole-description").textContent=profileDescription(blackHoleProfile(document.getElementById("blackhole-profile").value));
+    bind("blackhole-profile","change",this.syncHoleProfile);this.syncHoleProfile();
     bind("overview", "click", () => app.overview());
     bind("focus-button", "click", () => {
       if (app.selected && !app.selected.destroyed)
@@ -30,7 +33,7 @@ export class ControlPanel {
     });
     bind("play", "click", () => this.togglePause());
     bind("step-time", "click", () => {
-      app.clock.advance(1);
+      app.clock.advance(app.scientific?.stepDays||1);
       this.syncPlay();
     });
     bind("reset", "click", () => app.reset());
@@ -39,7 +42,9 @@ export class ControlPanel {
       app.scientific.progress=+e.target.value;app.clock.paused=true;this.syncPlay();app.scientific.update(0);
     });
     bind("time-speed", "input", (e) => {
-      app.clock.speed = SPEEDS[+e.target.value];
+      app.clock.speed = app.scientific?.mode==="massive-attraction"
+        ? app.scientific.baseSpeed*[0,.1,.25,1,1.5,2,2.5,3,3.5,4][+e.target.value]
+        : SPEEDS[+e.target.value];
       app.clock.paused = app.clock.speed === 0;
       document.getElementById("time-value").textContent =
         SPEED_LABELS[+e.target.value];
@@ -207,7 +212,7 @@ export class ControlPanel {
   togglePause() {
     this.app.clock.paused = !this.app.clock.paused;
     if (!this.app.clock.paused && this.app.clock.speed === 0) {
-      this.app.clock.speed = 10;
+      this.app.clock.speed = this.app.scientific?.baseSpeed||10;
       document.getElementById("time-speed").value = 3;
       document.getElementById("time-value").textContent = "10 dias/s";
     }
@@ -244,7 +249,7 @@ export class ControlPanel {
     const body = this.app.selected;
     const thermal = body?.environment?.thermal;
     const status = document.getElementById("environment-status");
-    status.textContent = thermal
+    status.textContent = this.app.scientific?.thermalDisabled ? "Temperatura e atmosfera não calculadas neste encontro." : thermal
       ? `${body.data.name}: ${(thermal.surfaceTemperature - 273.15).toFixed(0)} °C · ${thermal.state}`
       : "Selecione um planeta para acompanhar o estado térmico.";
     const impact = this.app.lastImpact;
@@ -272,6 +277,11 @@ export class ControlPanel {
     if(this.app.scientific?.mode==="future-sun"&&this.app.scientific.solar) {
       document.getElementById("sim-date").textContent=`+${this.app.scientific.solar.age.toFixed(2)} BILHÕES DE ANOS`;
       document.getElementById("time-value").textContent=`${(this.app.clock.speed/10).toFixed(1)}× evolução`;
+    }
+    if(this.app.scientific?.mode==="massive-attraction") {
+      document.getElementById("time-value").textContent=this.app.scientific.speedLabel;
+      document.getElementById("sim-date").textContent=`${(this.app.scientific.elapsed/3600).toFixed(2)} h DE ENCONTRO`;
+      document.getElementById("impact-status").textContent=this.app.scientific.capturedBodies===this.app.scientific.records.length?"Encontro concluído: massa incorporada ao buraco negro.":"Use +passo para acompanhar aproximação, marés e captura.";
     }
   }
 }

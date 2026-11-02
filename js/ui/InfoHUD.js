@@ -29,7 +29,7 @@ export class InfoHUD {
       this.root.append(root);
     }
     const env = body.environment;
-    root.textContent = env
+    root.textContent = body.encounterOnly ? "Encontro hipotético · tamanhos ampliados. Atmosfera e temperatura não calculadas neste cenário." : env
       ? `${env.profile.label}\n${(env.thermal.surfaceTemperature - 273.15).toFixed(0)} °C estimados · ${env.thermal.state}${env.weather ? `\nCobertura de nuvens: ${(env.weather.coverage() * 100).toFixed(0)}% · circulação simplificada` : ""}`
       : body.isBlackHole ? `Schwarzschild sem rotação · horizonte: ${body.data.radiusKm.toFixed(0)} km\nÓrbita circular estável mais interna: ${(3*body.data.radiusKm).toFixed(0)} km · desenho ampliado` : "";
   }

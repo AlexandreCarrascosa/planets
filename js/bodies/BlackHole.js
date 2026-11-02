@@ -1,15 +1,19 @@
 import * as THREE from "three";
 import { CelestialBody } from "./CelestialBody.js";
-import { schwarzschildRadius } from "../physics/PhysicalUnits.js";
+import { schwarzschildRadius, SOLAR_MASS } from "../physics/PhysicalUnits.js";
+import { labHoleRadius } from "../data/blackHoleProfiles.js";
 export class BlackHole extends CelestialBody {
-  constructor(id) {
+  constructor(id, options = {}) {
+    const solarMasses=options.solarMasses??100;
+    if(!Number.isFinite(solarMasses)||solarMasses<3||solarMasses>1e11)throw new RangeError("Massa do buraco negro fora da faixa suportada");
+    const radius=options.visualRadius??labHoleRadius(solarMasses);
     super({
       id,
-      name: "Buraco negro",
+      name: options.name ? `Buraco negro ${options.name.toLowerCase()}` : "Buraco negro",
       type: "Singularidade",
-      visualRadius: 1.5,
-      radiusKm: schwarzschildRadius(1.9885e32) / 1000,
-      massKg: 1.9885e32,
+      visualRadius: radius,
+      radiusKm: schwarzschildRadius(solarMasses*SOLAR_MASS) / 1000,
+      massKg: solarMasses*SOLAR_MASS,
       rotationPeriodHours: 1,
       axialTilt: 15,
       temperature: 0,
@@ -18,6 +22,7 @@ export class BlackHole extends CelestialBody {
       orbitalPeriodDays: 0,
     });
     this.isAttractor = true;
+    this.initialMass=this.mass;this.initialRadius=this.radius;this.linearHorizon=!!options.linearHorizon;
     this.isBlackHole = true;
     this.accretion = 0;
     this.free = true;
@@ -54,8 +59,11 @@ export class BlackHole extends CelestialBody {
   }
   accrete(mass) {
     const ratio = (this.mass + mass) / this.mass;
-    this.mass += mass; this.mu *= ratio; this.radius *= ratio;
-    this.tilt.scale.multiplyScalar(ratio); this.disk.scale.multiplyScalar(ratio);
+    const totalRatio=(this.mass+mass)/this.initialMass;
+    const nextRadius=this.initialRadius*(this.linearHorizon||totalRatio<=2?totalRatio:2+Math.log(totalRatio/2));
+    const drawingRatio=nextRadius/this.radius;
+    this.mass += mass; this.mu *= ratio; this.radius=nextRadius;
+    this.tilt.scale.multiplyScalar(drawingRatio); this.disk.scale.multiplyScalar(drawingRatio);
     this.data = { ...this.data, massKg: this.mass, radiusKm: schwarzschildRadius(this.mass) / 1000 };
   }
 }

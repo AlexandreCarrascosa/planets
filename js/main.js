@@ -26,6 +26,7 @@ import { tidalLoad } from "./physics/TidalModel.js";
 import { TidalDebris } from "./effects/TidalDebris.js";
 import { PlanetImpacts } from "./effects/PlanetImpacts.js";
 import { EjectaCloud } from "./effects/EjectaCloud.js";
+import { blackHoleProfile, labTimeFactor } from "./data/blackHoleProfiles.js";
 
 class Solaris {
   async init() {
@@ -123,7 +124,7 @@ class Solaris {
     if (focus) this.camera.focus(body);
   }
   overview() {
-    this.camera.overview(this.realScale);
+    if(this.scientific?.frame)this.scientific.frame();else this.camera.overview(this.realScale);
     document.getElementById("view-caption").textContent = "SISTEMA SOLAR";
     this.ui.toggle(document.getElementById("free-flight"), false);
   }
@@ -261,16 +262,20 @@ class Solaris {
       );
   }
   limitPhysicsSpeed() {
-    if (this.clock.speed > 100) {
-      this.clock.speed = 100;
+    const mass=Math.max(100,...this.bodies.filter(b=>b.isBlackHole&&!b.destroyed).map(b=>b.mass/1.9885e30));
+    const factor=this.scientific?1:labTimeFactor(mass);
+    this.gravity.maxStep=factor/120;
+    const maximum=this.scientific?.maxSpeed??100*factor;
+    if (this.clock.speed > maximum) {
+      this.clock.speed = maximum;
       document.getElementById("time-speed").value = 5;
-      document.getElementById("time-value").textContent = "100 dias/s";
+      document.getElementById("time-value").textContent = `${maximum.toPrecision(3)} dias/s`;
       this.log.add(
-        "Laboratório limitado a 100 dias/s para preservar a estabilidade das colisões.",
+        "Velocidade ajustada para acompanhar a gravidade e preservar a estabilidade do encontro.",
       );
     }
   }
-  spawn(type, position, velocity = new THREE.Vector3(), quiet = false) {
+  spawn(type, position, velocity = new THREE.Vector3(), quiet = false, options = {}) {
     if (this.bodies.filter((b) => !b.destroyed).length >= 96) {
       if (!quiet)
         this.log.add(
@@ -281,7 +286,7 @@ class Solaris {
     let body;
     const id = `created-${++this.nextId}`;
     if (type === "blackhole") {
-      body = new BlackHole(id);
+      body = new BlackHole(id,{...blackHoleProfile(document.getElementById("blackhole-profile").value),...options});
       this.enablePhysics(true);
     } else if (type === "star") {
       body = new Star(
@@ -554,7 +559,7 @@ class Solaris {
     if (this.frames % 6 === 0) {
       this.ui.update();
       this.hud.update(this.selected);
-      this.minimap.draw(this.bodies, this.selected, this.realScale || !!this.scientific);
+      this.minimap.draw(this.bodies, this.selected, this.scientific ? this.scientific.mode!=="massive-attraction" : this.realScale);
     }
     if (this.fpsTime >= 1) {
       document.getElementById("fps").textContent =

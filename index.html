@@ -162,6 +162,18 @@
           ><button data-panel="visual">Visual</button>
         </div>
         <div class="lab-content" id="panel-create">
+          <label class="slider-label" for="blackhole-profile">Tipo de buraco negro</label>
+          <select id="blackhole-profile" aria-label="Tipo de buraco negro">
+            <option value="stellar">Estelar · 100 sóis</option>
+            <option value="intermediate">Intermediário · 10 mil sóis</option>
+            <option value="supermassive">Supermassivo · 1 milhão de sóis</option>
+            <option value="galactic">Centro galáctico · 4,3 milhões de sóis</option>
+            <option value="m87">Supermassivo gigante · 6,5 bilhões de sóis</option>
+            <option value="hypermassive">Hipermassivo · 10 bilhões de sóis</option>
+          </select>
+          <p class="tool-hint" id="blackhole-description"></p>
+          <button class="scenario-button" data-preset="massive-attraction">Ver corpos sendo atraídos <span>↗</span></button>
+          <button class="scenario-button" data-preset="hypermassive">Hipermassivo · atrair corpos <span>↗</span></button>
           <div class="spawn-grid">
             <button data-spawn="meteor">
               <span data-icon="meteor"></span>Meteoro<small

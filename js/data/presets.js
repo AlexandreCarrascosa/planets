@@ -1,8 +1,24 @@
 import * as THREE from "three";
 import { seededRandom } from "../physics/PhysicalUnits.js";
 import { ScientificScenarios } from "../physics/ScientificScenarios.js";
+import { MassiveEncounter } from "../physics/MassiveEncounter.js";
+import { blackHoleProfile } from "./blackHoleProfiles.js";
 export function runPreset(app, name) {
   const random = seededRandom(1942);
+  if(name==="hypermassive") {
+    document.getElementById("blackhole-profile").value="hypermassive";app.ui.syncHoleProfile();
+    return runPreset(app,"massive-attraction");
+  }
+  if(name==="massive-attraction") {
+    const profile=blackHoleProfile(document.getElementById("blackhole-profile").value);
+    if(profile.solarMasses<1e6)return runPreset(app,"tides");
+    app.reset(false);app.scientific=new MassiveEncounter(app,profile);
+    app.clock.speed=app.scientific.baseSpeed;app.clock.paused=false;app.ui.syncPlay();
+    document.getElementById("time-speed").value=3;
+    for(const id of ["gravity","sun-mass","solar-flux","mutual-gravity","collisions","reverse-orbit","throw-planet"])document.getElementById(id).disabled=true;
+    app.log.add("Encontro hipotético: acompanhe Sol e planetas atraídos. Corpos e distorções ampliados; campo central newtoniano, sem relatividade forte.");
+    return;
+  }
   if(["physical-orbits","binary-physical","relativity","blackhole-orbits","future-sun"].includes(name)) {
     app.reset(false);app.scientific=new ScientificScenarios(app,name);
     app.clock.speed=10;app.ui.syncPlay();app.overview();

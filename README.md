@@ -1,5 +1,7 @@
 # Solaris 3D
 
+**Buracos negros configuráveis:** seis massas até **10 bilhões de sóis**, posicionamento manual e encontro para acompanhar atração, marés e captura. Acesse **Laboratório → Criar**. [Funcionamento e limites físicos](docs/BURACOS_NEGROS_MASSIVOS.md).
+
 **Atualização científica de 02/11/2026:** novos cenários de N corpos em unidades astronômicas, estrelas binárias, correção relativística de Mercúrio, buraco negro com massa solar e evolução do Sol até gigante vermelha/anã branca. Rupturas usam material granular com autoatração. Leia o [levantamento com referências, implementações e limites](docs/PESQUISA_E_IMPLEMENTACAO_CIENTIFICA.md). Os encontros destrutivos continuam um modelo reduzido; não são SPH ou relatividade numérica.
 
 Um simulador interativo do Sistema Solar, em português, com exploração e laboratório de física. Criado na pasta `planets`, com Three.js e Vite. A aplicação é inteiramente client-side; o servidor local apenas entrega os arquivos.
