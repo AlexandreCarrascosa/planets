@@ -20,6 +20,11 @@ import { ParticleSystem } from "./effects/ParticleSystem.js";
 import { TrailRenderer } from "./effects/TrailRenderer.js";
 import { DragAndLaunch } from "./interaction/DragAndLaunch.js";
 import { runPreset } from "./data/presets.js";
+import { classifyImpact, resolveGrazing } from "./physics/ImpactModel.js";
+import { clamp } from "./physics/PhysicalUnits.js";
+import { tidalLoad } from "./physics/TidalModel.js";
+import { TidalDebris } from "./effects/TidalDebris.js";
+import { PlanetImpacts } from "./effects/PlanetImpacts.js";
 
 class Solaris {
   async init() {
@@ -54,12 +59,15 @@ class Solaris {
     this.showBelt = true;
     this.realScale = false;
     this.collisionsEnabled = true;
+    this.luminosity = 1;
     this.tool = null;
     this.nextId = 0;
     this.PlanetClass = Planet;
     this.gravity = new GravityEngine();
-    this.collision = new CollisionSystem((a, b) => this.impact(a, b));
+    this.collision = new CollisionSystem((a, b, contact) => this.impact(a, b, contact));
     this.particles = new ParticleSystem(this.scene.scene);
+    this.tidalDebris = new TidalDebris(this.scene.scene);
+    this.planetImpacts = new PlanetImpacts(this);
     this.buildSystem();
     this.ui = new ControlPanel(this);
     this.selection = new SelectionSystem(this);
@@ -142,14 +150,20 @@ class Solaris {
   }
   reset(notify = true) {
     this.setTool(null);
+    this.planetImpacts.clear();
     for (const b of this.bodies) b.dispose();
     this.bodies = [];
     this.belt.mesh.removeFromParent();
     this.belt.mesh.geometry.dispose();
     this.belt.mesh.material.dispose();
     this.particles.clear();
+    this.tidalDebris.clear();
     this.log.clear();
     this.clock.reset();
+    this.luminosity = 1;
+    this.lastImpact = null;
+    document.getElementById("solar-flux").value = 1;
+    document.getElementById("solar-flux-value").value = "1×";
     this.gravity = new GravityEngine();
     this.realScale = false;
     this.collisionsEnabled = true;
@@ -300,19 +314,41 @@ class Solaris {
       );
     }
   }
-  impact(a, b) {
-    if (a.destroyed || b.destroyed) return;
+  impact(a, b, contact) {
+    if (a.destroyed || b.destroyed || a.impactLocked || b.impactLocked) return;
+    const event = classifyImpact(a, b, contact.normal, this.gravity.global);
+    a.position.copy(contact.pa); b.position.copy(contact.pb);
+    const larger = a.mass >= b.mass ? a : b, smaller = larger === a ? b : a;
+    const outward = contact.normal.clone().multiplyScalar(larger === a ? 1 : -1);
+    const point = larger.position.clone().addScaledVector(outward, larger.radius);
+    const options = { normal: outward, atmosphere: !!larger.environment?.profile.atmosphere };
+    const absorb = (target, victim) => {
+      const mass = target.mass + victim.mass;
+      target.velocity.copy(event.centerVelocity);
+      if (target.isBlackHole) target.accrete(victim.mass);
+      else target.setMass(mass);
+      this.destroy(victim);
+    };
+    this.lastImpact = { ...event, names: `${a.data.name} × ${b.data.name}` };
     const hole = a.isBlackHole ? a : b.isBlackHole ? b : null;
     if (hole) {
       const victim = hole === a ? b : a;
-      hole.mu += victim.mu;
-      this.particles.burst(victim.position, "#eeab6c", 1);
-      this.destroy(victim);
-      if (!victim.isDebris)
-        this.log.add(`${victim.data.name} foi absorvido pelo buraco negro.`);
+      if (this.disruptByTides(victim, hole)) return;
+      // Capacity fallback keeps capture mass/momentum intact without emitting
+      // the old isotropic explosion at the horizon.
+      hole.accretion = Math.min(1.5, hole.accretion + 0.4);
+      absorb(hole, victim);
       return;
     }
-    const small = a.isSmall ? a : b.isSmall ? b : null;
+    const star = a instanceof Star ? a : b instanceof Star ? b : null;
+    if (star) {
+      const victim = star === a ? b : a;
+      this.particles.burst(victim.position, "#ffc083", 3);
+      absorb(star, victim);
+      this.log.add(`${victim.data.name} foi incorporado por ${star.data.name}.`);
+      return;
+    }
+    const small = event.regime === "crater" ? smaller : null;
     if (small) {
       const target = small === a ? b : a;
       const point = small.position
@@ -321,110 +357,83 @@ class Solaris {
         .normalize()
         .multiplyScalar(target.radius)
         .add(target.position);
-      target.addCrater(point);
-      this.particles.burst(point, target.data.color, 0.75);
-      this.destroy(small);
+      const angularSize = clamp(Math.cbrt(small.mass / target.mass) * (1 + Math.sqrt(event.speed)) * 4, 0.008, 0.22);
+      target.addCrater(point, angularSize);
+      target.environment?.impact(point, clamp(angularSize * 10, 0.05, 1));
+      this.particles.burst(point, target.data.color, 0.3 + angularSize * 5, { ...options, ice: small.data.type === "Cometa" });
+      absorb(target, small);
       if (!small.isDebris)
         this.log.add(`${small.data.name} atingiu ${target.data.name}.`);
       return;
     }
-    const star = a instanceof Star ? a : b instanceof Star ? b : null;
-    if (star) {
-      const victim = star === a ? b : a;
-      star.mu += victim.mu;
-      this.particles.burst(victim.position, "#ffc083", 3);
-      this.destroy(victim);
-      this.log.add(`${victim.data.name} foi absorvido por ${star.data.name}.`);
+    if (event.regime === "grazing") {
+      resolveGrazing(a, b, contact.normal);
+      const overlap = a.radius + b.radius - a.position.distanceTo(b.position) + 0.01;
+      a.position.addScaledVector(contact.normal, -Math.max(0, overlap) * b.mass / event.mass);
+      b.position.addScaledVector(contact.normal, Math.max(0, overlap) * a.mass / event.mass);
+      this.particles.burst(contact.point, "#c9a27a", 0.8, options);
+      a.environment?.impact(contact.point, 0.5); b.environment?.impact(contact.point, 0.5);
+      this.log.add(`Impacto rasante: ${a.data.name} e ${b.data.name} sobreviveram.`);
       return;
     }
-    const center = a.position.clone().add(b.position).multiplyScalar(0.5);
-    const velocity = a.velocity
-      .clone()
-      .multiplyScalar(a.mass)
-      .addScaledVector(b.velocity, b.mass)
-      .divideScalar(a.mass + b.mass);
-    this.particles.burst(center, "#e8aa73", 5);
-    this.destroy(a);
-    this.destroy(b);
-    for (let i = 0; i < 22; i++) {
-      const direction = new THREE.Vector3(
-        Math.random() - 0.5,
-        Math.random() - 0.5,
-        Math.random() - 0.5,
-      ).normalize();
-      this.spawn(
-        "debris",
-        center.clone().addScaledVector(direction, 1 + Math.random() * 2),
-        velocity.clone().addScaledVector(direction, 1 + Math.random() * 3),
-        true,
-      );
+    this.planetImpacts.begin(a, b, event, contact);
+  }
+  disruptByTides(body, source) {
+    if (body.isBlackHole || body.destroyed || !this.tidalDebris.add(body, source)) return false;
+    const followed = this.selected === body || this.camera.tracking === body;
+    if (followed) this.camera.frameEncounter(body, source);
+    this.destroy(body);
+    if (followed) this.select(source, false);
+    if (!body.isDebris) this.log.add(`${body.data.name}: ruptura de maré. O material segue trajetórias próprias antes da captura.`);
+    return true;
+  }
+  updateTides(h) {
+    const holes = this.bodies.filter(b => b.isBlackHole && !b.destroyed);
+    if (this.realScale) return;
+    for (const body of this.bodies) {
+      if (body.destroyed || body.isBlackHole || body.dragging || body.impactLocked) continue;
+      let strongest = null;
+      for (const hole of holes) {
+        const load = tidalLoad(body, hole, this.gravity.global);
+        if (!strongest || load.ratio > strongest.ratio) strongest = load;
+      }
+      const broken = body.tidal.update(strongest, h);
+      body.updateTidalShape();
+      if (broken && strongest) this.disruptByTides(body, strongest.source);
     }
-    this.log.add(
-      `Colisão entre ${a.data.name} e ${b.data.name}! Um campo de detritos se formou.`,
-    );
   }
   updatePhysics(dt, days) {
     const physical = this.bodies.some((b) => b.free && !b.destroyed);
     if (physical) this.limitPhysicsSpeed();
-    this.gravity.step(this.bodies, Math.min(days * 0.1, 0.5), () => {
+    this.gravity.step(this.bodies, days * 0.1, (h) => {
+      this.planetImpacts.step(h);
+      this.tidalDebris.step(h, this.bodies, this.gravity.global, (hole, fragment) => {
+        const total = hole.mass + fragment.mass;
+        hole.velocity.multiplyScalar(hole.mass / total).addScaledVector(fragment.velocity, fragment.mass / total);
+        const feed = fragment.mass / hole.mass;
+        hole.accrete(fragment.mass);
+        hole.accretion = Math.min(1.5, hole.accretion + Math.min(0.15, Math.cbrt(feed) * 2));
+      });
+      this.updateTides(h);
       if (this.collisionsEnabled) this.collision.check(this.bodies);
     });
-    const holes = this.bodies.filter((b) => b.isBlackHole && !b.destroyed);
-    let visibleHole = null,
-      bestRadius = 0;
-    for (const hole of holes) {
-      const p = hole.position.clone().project(this.scene.camera),
-        distance = this.scene.camera.position.distanceTo(hole.position),
-        radius = (hole.radius / distance) * 1.2;
-      if (
-        p.z < 1 &&
-        p.z > -1 &&
-        Math.abs(p.x) < 1.3 &&
-        Math.abs(p.y) < 1.3 &&
-        radius > bestRadius
-      ) {
-        visibleHole = { p, radius };
-        bestRadius = radius;
-      }
-      for (const b of this.bodies) {
-        if (b === hole || b.destroyed || b === this.sun) continue;
-        const d = b.position.distanceTo(hole.position);
-        if (d < hole.radius * 8 + b.radius) {
-          const stretch =
-            1 + Math.max(0, 1 - d / (hole.radius * 8 + b.radius)) * 2.5;
-          b.root.scale.set(
-            1 / Math.sqrt(stretch),
-            1 / Math.sqrt(stretch),
-            stretch,
-          );
-          b.root.quaternion.setFromUnitVectors(
-            new THREE.Vector3(0, 0, 1),
-            hole.position.clone().sub(b.position).normalize(),
-          );
-        } else if (!b.isBlackHole) {
-          b.root.scale.setScalar(1);
-          b.root.quaternion.identity();
-        }
-      }
-    }
-    const lens = this.scene.post.lens.uniforms;
-    lens.radius.value = visibleHole ? visibleHole.radius : 0;
-    if (visibleHole)
-      lens.center.value.set(
-        visibleHole.p.x * 0.5 + 0.5,
-        visibleHole.p.y * 0.5 + 0.5,
-      );
+    this.tidalDebris.render();
     for (const b of this.bodies) {
       if (b.destroyed) continue;
       if (b instanceof Meteor) {
         b.update(days);
         if (days) b.trail?.update(b.position);
-        if (b.age > 6000 || b.position.length() > 4000) this.destroy(b);
+        if (!b.isImpactFragment && (b.age > 6000 || b.position.length() > 4000)) this.destroy(b);
       }
+      if (b.fragmentHeat) b.fragmentHeat.emissiveIntensity *= Math.exp(-Math.abs(days) / 20);
       if (b instanceof BlackHole) b.update(days, this.elapsed);
+      if (b.environment) {
+        const distanceAU = b.position.distanceTo(this.sun.position) / b.distance * b.data.distanceFromSunKm / AU;
+        b.environment.update(days, distanceAU, this.luminosity, this.sun.position);
+      }
     }
     this.particles.update(
-      this.clock.paused ? 0 : dt,
+      days * 0.1,
       this.bodies.filter(
         (b) => !b.destroyed && (b.id === "sun" || b.isAttractor),
       ),
@@ -439,6 +448,39 @@ class Solaris {
     document.getElementById("simulation-status").textContent = physical
       ? "FÍSICA SANDBOX"
       : "ÓRBITAS KEPLERIANAS";
+  }
+  updateLensing() {
+    this.scene.camera.updateMatrixWorld();
+    const holes = this.bodies.filter((b) => b.isBlackHole && !b.destroyed);
+    let visibleHole = null,
+      bestRadius = 0;
+    for (const hole of holes) {
+      const p = hole.position.clone().project(this.scene.camera),
+        distance = this.scene.camera.position.distanceTo(hole.position),
+        radius = (hole.radius / distance) * 1.2;
+      if (
+        p.z < 1 &&
+        p.z > -1 &&
+        Math.abs(p.x) < 1.3 &&
+        Math.abs(p.y) < 1.3 &&
+        radius > bestRadius
+      ) {
+        visibleHole = { p, radius, hole };
+        bestRadius = radius;
+      }
+    }
+    const lens = this.scene.post.lens.uniforms;
+    lens.radius.value = visibleHole ? visibleHole.radius : 0;
+    if (visibleHole) {
+      lens.center.value.set(
+        visibleHole.p.x * 0.5 + 0.5,
+        visibleHole.p.y * 0.5 + 0.5,
+      );
+      lens.holeViewDepth.value = -visibleHole.hole.position.clone().applyMatrix4(this.scene.camera.matrixWorldInverse).z;
+      lens.holeRadius.value = visibleHole.hole.radius;
+    }
+    lens.cameraNear.value = this.scene.camera.near;
+    lens.cameraFar.value = this.scene.camera.far;
   }
   updateLabels() {
     const camera = this.scene.camera;
@@ -479,15 +521,20 @@ class Solaris {
       if (b.orbit) b.orbit.visible = this.showOrbits && !b.free && !b.destroyed;
     }
     this.updatePhysics(dt, days);
+    this.sun.light.intensity = 3.6 * this.luminosity;
+    this.sun.material.emissiveIntensity = 2.1 * this.luminosity;
+    this.sun.glow.material.opacity *= Math.min(1.5, Math.sqrt(this.luminosity));
     this.belt.update(this.clock.days);
     this.belt.mesh.visible = this.showBelt && !this.realScale;
     this.camera.update(dt);
+    this.updateLensing();
     this.updateLabels();
     this.scene.render();
     this.frames++;
     this.fpsTime += wallDt;
     if (this.frames % 6 === 0) {
       this.ui.update();
+      this.hud.update(this.selected);
       this.minimap.draw(this.bodies, this.selected, this.realScale);
     }
     if (this.fpsTime >= 1) {

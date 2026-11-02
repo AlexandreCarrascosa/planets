@@ -4,6 +4,12 @@ Um simulador interativo do Sistema Solar, em português, com exploração e labo
 
 **Acesse online:** [Solaris 3D](https://alexandrecarrascosa.github.io/planets/)
 
+**Melhorias locais de 15/10/2026:** colisões por regime, fragmentos com massa/momento preservados, nuvens dinâmicas na Terra, resposta térmica e novos cenários. Consulte [o que foi implementado e seus limites](docs/MELHORIAS_IMPLEMENTADAS.md) e o [plano completo](docs/PLANO_DE_EVOLUCAO.md). A versão online só recebe essas mudanças quando forem enviadas ao repositório.
+
+**Revisão das marés:** aproximação com deformação radial limitada, ruptura em fragmentos e captura gradual; novo cenário **Marés · buraco negro** e botão **+1d**. Veja a [sequência, testes e limites](docs/CORRECAO_MARES.md).
+
+**Revisão dos impactos:** contato com os dois corpos visíveis, ruptura em sólidos que preservam a textura e fusão com incorporação gradual do material. Veja a [correção e seus limites](docs/CORRECAO_COLISOES.md).
+
 ## Publicação no GitHub Pages
 
 O repositório usa `.github/workflows/deploy.yml` para testar, compilar e publicar automaticamente cada atualização enviada à branch `main`. O site é servido pelo GitHub Pages, sem depender do computador local.
@@ -64,7 +70,9 @@ npm run preview  # Serve a versão de produção
 
 **Cenários:** chuva de meteoros, Terra × Marte (os dois corpos são posicionados em uma região isolada para uma colisão reproduzível) e sistema binário.
 
-Pequenos impactos deixam marcas na superfície e partículas. Colisões planetárias substituem os corpos por fragmentos sujeitos à gravidade. Cometas têm rastro. Buracos negros têm disco de acreção, distorção de tela e alongamento visual de corpos próximos, que são absorvidos ao alcançar o horizonte visual.
+Pequenos impactos deixam marcas curvas na superfície e partículas; planetas gasosos não recebem crateras de solo. Colisões maiores podem fundir corpos, preservar dois remanescentes em encontros rasantes ou causar ruptura. A fragmentação preserva massa/momento linear e limita a energia de ejeção. Cometas têm rastro. Buracos negros têm disco alimentado após captura, distorção de tela e deformação por gradiente de maré aproximado. A massa capturada atualiza a gravidade e o raio físico; o horizonte desenhado continua ampliado.
+
+Na Terra, transporte de umidade, evaporação, condensação e precipitação modificam um campo de nuvens; uma textura fornece os detalhes visuais. O controle **Luminosidade solar** altera fluxo recebido e temperatura estimada. Os cenários **Terra em resfriamento** e **Terra sob calor extremo** permitem observar gelo e resposta das nuvens com o tempo. A circulação é prescrita e a superfície ainda não tem hidrologia ou meteorologia local completa.
 
 O motor usa gravitação newtoniana suavizada e integração kick-drift-kick. A detecção contínua de esferas evita que projéteis rápidos atravessem os planetas. Uma vez solto da órbita kepleriana, um planeta permanece livre até o reinício. Desligar gravidade mútua mantém atração solar e de estrelas/buracos negros adicionais. A mudança entre escalas após experiências restaura o sistema, para não misturar unidades.
 

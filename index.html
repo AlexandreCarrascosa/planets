@@ -194,6 +194,11 @@
           ><button class="scenario-button" data-preset="binary">
             Dois sóis <span>↗</span>
           </button>
+          <button class="scenario-button" data-preset="merge">Impacto lento · fusão <span>↗</span></button>
+          <button class="scenario-button" data-preset="grazing">Impacto rasante <span>↗</span></button>
+          <button class="scenario-button" data-preset="freeze">Terra em resfriamento <span>↗</span></button>
+          <button class="scenario-button" data-preset="heat">Terra sob calor extremo <span>↗</span></button>
+          <button class="scenario-button" data-preset="tides">Marés · buraco negro <span>↗</span></button>
         </div>
         <div class="lab-content" id="panel-physics" hidden>
           <label class="switch-row"
@@ -226,6 +231,10 @@
             step="0.1"
             value="1"
           />
+          <label class="slider-label" for="solar-flux">Luminosidade solar <output id="solar-flux-value">1×</output></label>
+          <input type="range" id="solar-flux" min="0.05" max="8" step="0.05" value="1" />
+          <p class="tool-hint" id="environment-status">Selecione um planeta para acompanhar o estado térmico.</p>
+          <p class="tool-hint" id="impact-status">O próximo impacto exibirá seu regime e velocidade relativa.</p>
           <div class="section-label">CORPO SELECIONADO</div>
           <div class="button-stack">
             <button id="stop-rotation">Parar / retomar rotação</button
@@ -234,8 +243,8 @@
             ><button id="throw-planet">Arrastar e arremessar</button>
           </div>
           <p class="tool-hint">
-            A física usa escalas didáticas e integração estável. Resultados são
-            ilustrativos.
+            Luminosidade altera calor e nuvens; a resposta leva tempo simulado.
+            Órbitas, impactos e marés do laboratório usam escalas didáticas.
           </p>
         </div>
         <div class="lab-content" id="panel-visual" hidden>
@@ -316,6 +325,7 @@
         >
           <span data-icon="pause"></span>
         </button>
+        <button class="icon-button" id="step-time" title="Pausar e avançar um dia" aria-label="Avançar um dia">+1d</button>
         <div class="date-block">
           <span class="eyebrow">TEMPO SIMULADO</span
           ><strong id="sim-date">01 JAN 2026</strong>

@@ -1,5 +1,30 @@
 import * as THREE from "three";
+import { seededRandom } from "../physics/PhysicalUnits.js";
 export function runPreset(app, name) {
+  const random = seededRandom(1942);
+  if (["collision", "merge", "grazing"].includes(name) || app.planetImpacts.active.length) app.reset(false);
+  if (name === "tides") {
+    app.reset(false);
+    const earth = app.bodies.find(b => b.id === "earth");
+    earth.position.set(145, 20, 0);
+    const hole = app.spawn("blackhole", new THREE.Vector3(178, 20, 0), new THREE.Vector3(), true);
+    if (!hole) return;
+    earth.velocity.set(0, 0, 0.65);
+    app.clock.paused = false; app.clock.speed = 1;
+    document.getElementById("time-speed").value = 2;
+    document.getElementById("time-value").textContent = "1 dia/s";
+    app.ui.syncPlay();
+    app.select(earth, false);
+    app.camera.frameEncounter(earth, hole);
+    app.log.add("Encontro de maré: acompanhe o alongamento, a ruptura e a captura gradual. Modelo reduzido.");
+    return;
+  }
+  if (["freeze", "heat"].includes(name)) {
+    app.reset(false);
+    app.luminosity = name === "freeze" ? 0.1 : 8;
+    document.getElementById("solar-flux").value = app.luminosity;
+    document.getElementById("solar-flux-value").value = `${app.luminosity}×`;
+  }
   if (app.realScale) app.setScale(false);
   app.clock.paused = false;
   app.clock.speed = 10;
@@ -19,9 +44,9 @@ export function runPreset(app, name) {
     app.select(target);
     for (let i = 0; i < 9; i++) {
       const offset = new THREE.Vector3(
-        8 + Math.random() * 6,
-        Math.random() * 2,
-        5 + Math.random() * 5,
+        8 + random() * 6,
+        random() * 2,
+        5 + random() * 5,
       );
       app.spawn(
         "meteor",
@@ -32,7 +57,13 @@ export function runPreset(app, name) {
     }
     app.log.add(`Chuva de meteoros a caminho de ${target.data.name}.`);
   }
-  if (name === "collision") {
+  if (["freeze", "heat"].includes(name)) {
+    app.select(earth);
+    app.log.add(name === "freeze"
+      ? "Luminosidade reduzida: acompanhe o resfriamento e o gelo ao longo dos próximos dias."
+      : "Luminosidade ampliada: acompanhe a temperatura e a resposta das nuvens. Clima extrapolado.");
+  }
+  if (["collision", "merge", "grazing"].includes(name)) {
     const mars = app.bodies.find((b) => b.id === "mars" && !b.destroyed);
     if (!earth || !mars) {
       app.log.add("Reinicie para recriar Terra e Marte.");
@@ -40,15 +71,17 @@ export function runPreset(app, name) {
     }
     app.gravity.release(earth, app.sun);
     app.gravity.release(mars, app.sun);
-    earth.position.set(145, 20, 0);
+    earth.position.set(earth.distance / Math.sqrt(2), earth.distance / Math.sqrt(2), 0);
     earth.velocity.set(0, 0, 0);
-    mars.position.copy(earth.position).add(new THREE.Vector3(12, 0, 0));
+    const close = name !== "collision";
+    mars.position.copy(earth.position).add(new THREE.Vector3(close ? earth.radius + mars.radius + 0.00001 : 12, 0, 0));
     earth.previous = earth.position.clone();
     mars.previous = mars.position.clone();
-    mars.velocity.set(-7, 0, 0);
+    const escape = Math.sqrt(2 * (earth.mu + mars.mu) / (earth.radius + mars.radius));
+    mars.velocity.set(name === "merge" ? -escape * 0.2 : name === "grazing" ? -escape * 0.8 : -7, 0, name === "grazing" ? escape * 2 : 0);
     app.select(earth);
-    app.camera.focus(earth, false);
-    app.log.add("Rota de colisão: Terra × Marte.");
+    app.camera.focus(earth, true);
+    app.log.add(`Rota de colisão: Terra × Marte · ${name === "merge" ? "aproximação lenta" : name === "grazing" ? "rasante" : "alta energia"}.`);
   }
   if (name === "binary") {
     app.spawn(

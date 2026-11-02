@@ -1,7 +1,8 @@
 import * as THREE from "three";
 import { CelestialBody } from "./CelestialBody.js";
 import { Moon } from "./Moon.js";
-import { atmosphereMaterial, ringTexture } from "../effects/ShaderLibrary.js";
+import { ringTexture } from "../effects/ShaderLibrary.js";
+import { PlanetEnvironment } from "../effects/PlanetEnvironment.js";
 import { orbitalPosition } from "../physics/OrbitalMechanics.js";
 import { AU } from "../data/planetData.js";
 export class Planet extends CelestialBody {
@@ -22,43 +23,7 @@ export class Planet extends CelestialBody {
     this.createSurface(material);
     if (data.id === "jupiter" || data.id === "saturn")
       this.surface.scale.y = 0.94;
-    if (data.atmosphereColor) {
-      this.atmosphere = new THREE.Mesh(
-        new THREE.SphereGeometry(this.radius * 1.03, 48, 32),
-        atmosphereMaterial(
-          data.atmosphereColor,
-          data.id === "earth" ? 0.62 : 0.3,
-        ),
-      );
-      this.tilt.add(this.atmosphere);
-    }
-    if (data.id === "earth") {
-      material.emissiveMap = assets.get("earth_nightmap");
-      material.emissive = new THREE.Color("#ffce89");
-      material.emissiveIntensity = 1.2;
-      this.sunDirection = { value: new THREE.Vector3(1, 0, 0) };
-      material.onBeforeCompile = (shader) => {
-        shader.uniforms.sunDirection = this.sunDirection;
-        shader.fragmentShader =
-          "uniform vec3 sunDirection;\n" + shader.fragmentShader;
-        shader.fragmentShader = shader.fragmentShader.replace(
-          "#include <emissivemap_fragment>",
-          "#include <emissivemap_fragment>\n totalEmissiveRadiance *= (1.0 - smoothstep(-0.15, 0.2, dot(normal, sunDirection)));",
-        );
-      };
-      this.clouds = new THREE.Mesh(
-        new THREE.SphereGeometry(this.radius * 1.012, 64, 32),
-        new THREE.MeshPhysicalMaterial({
-          map: assets.get("earth_clouds"),
-          alphaMap: assets.get("earth_clouds"),
-          transparent: true,
-          opacity: 0.65,
-          depthWrite: false,
-          roughness: 1,
-        }),
-      );
-      this.tilt.add(this.clouds);
-    }
+    this.environment = new PlanetEnvironment(this, assets);
     if (data.hasRings) {
       const geo = new THREE.RingGeometry(
         this.radius * 1.35,
@@ -150,19 +115,11 @@ export class Planet extends CelestialBody {
       this.setOrbitPosition();
     }
     this.rotate(deltaDays);
-    if (this.clouds)
-      this.clouds.rotation.y =
-        (this.clouds.rotation.y + deltaDays * 0.1) % (Math.PI * 2);
-    if (this.sunDirection) {
-      this.sunDirection.value
-        .copy(this.position)
-        .negate()
-        .transformDirection(camera.matrixWorldInverse);
-    }
-    for (const moon of this.moons) moon.update(this.orbitDays, this.realScale);
+    if (!this.impactLocked) for (const moon of this.moons) moon.update(this.orbitDays, this.realScale);
     this.orbit.visible = !this.free && !this.destroyed;
   }
   dispose() {
+    this.environment?.dispose();
     super.dispose();
     this.orbit.geometry.dispose();
     this.orbit.material.dispose();

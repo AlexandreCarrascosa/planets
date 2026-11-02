@@ -8,7 +8,7 @@ export class Meteor extends CelestialBody {
       type: comet ? "Cometa" : "Asteroide",
       visualRadius: debris ? 0.12 : comet ? 0.35 : 0.25,
       radiusKm: comet ? 5 : 1,
-      massKg: 1e15,
+      massKg: (4 / 3) * Math.PI * (comet ? 5000 : 1000) ** 3 * (comet ? 600 : 3000),
       rotationPeriodHours: 8,
       axialTilt: 30,
       temperature: -120,

@@ -29,6 +29,10 @@ export class ControlPanel {
         app.camera.focus(app.selected);
     });
     bind("play", "click", () => this.togglePause());
+    bind("step-time", "click", () => {
+      app.clock.advance(1);
+      this.syncPlay();
+    });
     bind("reset", "click", () => app.reset());
     bind("time-speed", "input", (e) => {
       app.clock.speed = SPEEDS[+e.target.value];
@@ -159,6 +163,10 @@ export class ControlPanel {
       app.enablePhysics(true);
       if (app.selected === app.sun) app.hud.show(app.sun, 0);
     });
+    bind("solar-flux", "input", (e) => {
+      app.luminosity = +e.target.value;
+      document.getElementById("solar-flux-value").value = `${e.target.value}×`;
+    });
     bind("stop-rotation", "click", () => {
       if (app.selected) {
         app.selected.rotationMultiplier = app.selected.rotationMultiplier
@@ -229,8 +237,25 @@ export class ControlPanel {
       body.data.name.toUpperCase();
   }
   update() {
-    document.getElementById("sim-date").textContent = this.app.clock
-      .date()
+    const body = this.app.selected;
+    const thermal = body?.environment?.thermal;
+    const status = document.getElementById("environment-status");
+    status.textContent = thermal
+      ? `${body.data.name}: ${(thermal.surfaceTemperature - 273.15).toFixed(0)} °C · ${thermal.state}`
+      : "Selecione um planeta para acompanhar o estado térmico.";
+    const impact = this.app.lastImpact;
+    const names = { crater: "Impacto local", merge: "Fusão", grazing: "Impacto rasante", disruption: "Ruptura" };
+    document.getElementById("impact-status").textContent = this.app.planetImpacts.status || (this.app.tidalDebris.count
+      ? `Ruptura de maré: ${this.app.tidalDebris.count} fragmentos seguem trajetórias próprias. A captura alimenta o disco.`
+      : this.app.tidalDebris.capturedMass > 0
+        ? "Material capturado pelo horizonte. O disco perde brilho à medida que a alimentação termina."
+      : impact
+      ? `${impact.names} · ${names[impact.regime]} · v / escape: ${(impact.speed / Math.max(impact.escape, 1e-9)).toFixed(2)}`
+      : "O próximo impacto exibirá seu regime e velocidade relativa.");
+    const date = this.app.clock.date();
+    document.getElementById("sim-date").textContent = Number.isNaN(date.getTime())
+      ? `+${(this.app.clock.days / 365.25).toLocaleString("pt-BR", { maximumFractionDigits: 0 })} ANOS`
+      : date
       .toLocaleDateString("pt-BR", {
         day: "2-digit",
         month: "short",

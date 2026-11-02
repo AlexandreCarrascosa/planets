@@ -84,6 +84,30 @@ export class CameraController {
       duration: 1.4,
     };
   }
+  frameEncounter(a, b) {
+    this.setFree(false);
+    this.tracking = null;
+    const center = a.position.clone().add(b.position).multiplyScalar(0.5);
+    const extent = a.position.distanceTo(b.position) * 0.5 + Math.max(a.radius, b.radius) * 2;
+    const distance = extent / Math.tan(this.camera.fov * Math.PI / 360) * 1.5;
+    this.camera.near = 0.01;
+    this.camera.updateProjectionMatrix();
+    this.transition = {
+      from: this.camera.position.clone(), targetFrom: this.controls.target.clone(), target: center,
+      offset: new THREE.Vector3(0, 0.4, 1).normalize().multiplyScalar(distance),
+      elapsed: 0, duration: 1.4,
+    };
+  }
+  followImpact(record, a, b) {
+    this.setFree(false);
+    const direction = this.transition?.offset.clone().normalize()
+      || this.camera.position.clone().sub(this.controls.target).normalize();
+    this.tracking = record; this.lastTarget.copy(record.center);
+    this.transition = {
+      from: this.camera.position.clone(), targetFrom: this.controls.target.clone(), target: record.center,
+      offset: direction.multiplyScalar(Math.max(a.radius, b.radius) * 8.5), elapsed: 0, duration: 0.6,
+    };
+  }
   setFree(on) {
     if (this.free === on) return;
     this.free = on;
@@ -113,7 +137,7 @@ export class CameraController {
       this.tracking = null;
       this.transition = null;
     }
-    const target = this.tracking ? this.tracking.position : new THREE.Vector3();
+    const target = this.transition?.target || (this.tracking ? this.tracking.position : new THREE.Vector3());
     if (this.transition) {
       const t = this.transition;
       t.elapsed += dt;

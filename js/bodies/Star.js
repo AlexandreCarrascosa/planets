@@ -38,7 +38,7 @@ export class Star extends CelestialBody {
       new THREE.SphereGeometry(this.radius * 1.04, 48, 32),
       atmosphereMaterial("#ffb657", 0.8),
     );
-    this.root.add(this.corona);
+    this.tidalGroup.add(this.corona);
     // A star does not cast a shadow on itself from its central light.
     this.surface.traverse((o) => {
       o.castShadow = false;

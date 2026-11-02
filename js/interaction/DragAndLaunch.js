@@ -38,7 +38,7 @@ export class DragAndLaunch {
     }
     if (app.tool === "throw") {
       this.body = app.selection.pick(e);
-      if (!this.body || this.body === app.sun) {
+      if (!this.body || this.body === app.sun || this.body.impactLocked) {
         app.log.add("Clique e arraste um planeta para definir o lançamento.");
         this.body = null;
         return;

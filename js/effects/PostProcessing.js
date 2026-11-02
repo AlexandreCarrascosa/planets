@@ -7,6 +7,10 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 export class PostProcessing {
   constructor(renderer, scene, camera) {
     this.composer = new EffectComposer(renderer);
+    for (const target of [this.composer.renderTarget1, this.composer.renderTarget2]) {
+      target.depthTexture = new THREE.DepthTexture(target.width, target.height, THREE.UnsignedIntType);
+      target.depthBuffer = true;
+    }
     this.composer.addPass(new RenderPass(scene, camera));
     this.lens = new ShaderPass({
       uniforms: {
@@ -14,10 +18,33 @@ export class PostProcessing {
         center: { value: new THREE.Vector2(0.5, 0.5) },
         radius: { value: 0 },
         aspect: { value: 1 },
+        tDepth: { value: null },
+        holeViewDepth: { value: 1 },
+        holeRadius: { value: 1 },
+        cameraNear: { value: camera.near },
+        cameraFar: { value: camera.far },
       },
       vertexShader: `varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
-      fragmentShader: `uniform sampler2D tDiffuse;uniform vec2 center;uniform float radius;uniform float aspect;varying vec2 vUv;void main(){vec2 d=vUv-center;d.x*=aspect;float r=length(d);float bend=radius*radius/(r*r+.0002)*.055;vec2 uv=vUv+(vUv-center)*min(bend,.65)*(1.-smoothstep(radius*.6,radius*5.+.00001,r));vec4 col=texture2D(tDiffuse,clamp(uv,0.,1.));float horizon=smoothstep(radius*.35,radius*.47+.00001,r);gl_FragColor=vec4(col.rgb*mix(1.,horizon,step(.0001,radius)),col.a);}`,
+      fragmentShader: `uniform sampler2D tDiffuse,tDepth;uniform vec2 center;
+      uniform float radius,aspect,holeViewDepth,holeRadius,cameraNear,cameraFar;varying vec2 vUv;
+      void main(){vec4 original=texture2D(tDiffuse,vUv);
+        if(radius<.0001){gl_FragColor=original;return;}
+        float depth=texture2D(tDepth,vUv).r;
+        float viewDepth=cameraNear*cameraFar/(cameraFar-depth*(cameraFar-cameraNear));
+        if(viewDepth<holeViewDepth-holeRadius){gl_FragColor=original;return;}
+        vec2 d=vUv-center;d.x*=aspect;float r=length(d);
+        float bend=min(.12,radius*radius/(r*r+.00001)*.025);
+        vec2 uv=vUv+(vUv-center)*bend*(1.-smoothstep(radius,radius*3.5,r));
+        vec4 col=texture2D(tDiffuse,clamp(uv,0.,1.));
+        float horizon=smoothstep(radius*.96,radius*1.02,r);
+        gl_FragColor=vec4(col.rgb*horizon,col.a);
+      }`,
     });
+    const renderLens = this.lens.render.bind(this.lens);
+    this.lens.render = (renderer, writeBuffer, readBuffer, ...args) => {
+      this.lens.uniforms.tDepth.value = readBuffer.depthTexture;
+      renderLens(renderer, writeBuffer, readBuffer, ...args);
+    };
     this.composer.addPass(this.lens);
     this.bloom = new UnrealBloomPass(
       new THREE.Vector2(innerWidth, innerHeight),

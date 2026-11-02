@@ -125,6 +125,11 @@ test("pause and reset preserve simulated time semantics", () => {
   c.paused = true;
   assert.equal(c.update(3), 0);
   assert.equal(c.days, 10);
+  c.advance(2);
+  assert.equal(c.update(100), 2);
+  assert.equal(c.days, 12);
+  assert.equal(c.paused, true);
+  assert.equal(c.update(100), 0);
   c.reset();
   assert.equal(c.days, 0);
   assert.equal(c.paused, false);

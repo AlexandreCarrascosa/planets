@@ -23,11 +23,11 @@ export class GravityEngine {
   }
   step(bodies, dt, onStep) {
     if (dt <= 0) return;
-    const steps = Math.min(240, Math.max(1, Math.ceil(dt / this.maxStep)));
+    const steps = Math.max(1, Math.ceil(dt / this.maxStep));
     const h = dt / steps;
     for (let s = 0; s < steps; s++) {
       const active = bodies.filter(
-        (b) => b.free && !b.destroyed && !b.dragging,
+        (b) => b.free && !b.destroyed && !b.dragging && !b.impactLocked,
       );
       const accelerations = active.map((b) => this.acceleration(b, bodies));
       for (let i = 0; i < active.length; i++) {
@@ -39,7 +39,7 @@ export class GravityEngine {
       const after = active.map((b) => this.acceleration(b, bodies));
       for (let i = 0; i < active.length; i++)
         active[i].velocity.addScaledVector(after[i], h / 2);
-      onStep?.();
+      onStep?.(h);
     }
   }
   release(body, sun) {
